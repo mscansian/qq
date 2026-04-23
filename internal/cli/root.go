@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -52,12 +53,12 @@ func Execute() int {
 	var flags rootFlags
 
 	cmd := &cobra.Command{
-		Use:   "qq [QUESTION]",
+		Use:   "qq [QUESTION...]",
 		Short: "Quick Question — a terminal assistant for quick questions",
 		// We handle --help ourselves so usage output doesn't print on errors.
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Args:          cobra.MaximumNArgs(1),
+		Args:          cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if flags.showVersion {
 				fmt.Fprintln(cmd.OutOrStdout(), Version)
@@ -139,7 +140,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	arg := ""
 	argGiven := len(args) > 0
 	if argGiven {
-		arg = args[0]
+		arg = strings.Join(args, " ")
 	}
 
 	stdinReader, stdinTTY := stdin, func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
