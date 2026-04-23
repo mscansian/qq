@@ -10,6 +10,10 @@ The archaic version of "your" is "thy" (possessive) or "thine" before a
 vowel sound — e.g. "thy sword", "thine eyes".
 ```
 
+Quotes are only needed when the question contains shell metacharacters
+(`?`, `*`, `|`, `&`, `!`, `$`, backticks). Plain sentences work
+unquoted: `qq explain SIGKILL`.
+
 ## Why you'd want it
 
 You already live in the terminal. Most of the stuff you'd type into
