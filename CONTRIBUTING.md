@@ -82,6 +82,64 @@ $ go vet ./...
 $ go build -o qq ./cmd/qq
 ```
 
+Version is injected via `-ldflags` from `git describe` on tagged
+builds. GoReleaser produces multi-arch binaries
+(linux/amd64, linux/arm64, darwin/amd64, darwin/arm64) for
+releases.
+
+## Project layout
+
+```
+cmd/qq/
+  main.go                 # entrypoint, delegates to internal/cli
+internal/
+  cli/
+    root.go               # cobra root command, flag wiring, execution
+    configure.go          # `qq --configure` interactive flow
+    spinner.go            # TTY-aware spinner
+  config/
+    credentials.go        # credentials.toml loader + schema
+    config.go             # config.toml loader + schema
+    resolve.go            # precedence ladder: flags → env → profile
+  client/
+    client.go             # openai-go wrapper, request shaping, streaming
+    decision.go           # decision-mode parsing state machine
+    filter.go             # control-byte filter on streamed output
+    systemprompt.go       # the baked-in system prompt (constant)
+  history/
+    history.go            # JSONL append + rotation
+  input/
+    input.go              # stdin detection, arg+stdin combination, size cap
+```
+
+Each package has a single responsibility and is unit-testable
+without touching the others. `cli` depends on everything; everything
+else avoids depending on `cli`.
+
+## Dependencies
+
+Kept minimal. Each one justified:
+
+| Dependency | Purpose |
+|---|---|
+| `github.com/openai/openai-go` | LLM API client. Supports `option.WithBaseURL` / `option.WithAPIKey` for any OpenAI-compatible provider. Uses Chat Completions (not Responses — that's OpenAI-specific and breaks portability). |
+| `github.com/spf13/cobra` | CLI framework. |
+| `github.com/pelletier/go-toml/v2` | TOML parser with line/column errors and `DisallowUnknownFields`. |
+| `golang.org/x/term` | TTY detection. |
+
+No markdown renderer, no prompt library, no keyring integration.
+
+## Testing strategy
+
+- **Unit tests** for config resolution, TOML parsing, input handling,
+  history append/rotation, decision parsing, and the control-byte
+  filter.
+- **Integration tests** for the client layer using `httptest.Server`
+  impersonating an OpenAI-compatible SSE stream. Covers request
+  shape, streaming, error mapping, retries, cancellation.
+- **No end-to-end tests against real providers in CI** — flaky, costs
+  money, and the integration tests cover the same paths.
+
 
 ## How to add a feature
 

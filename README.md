@@ -5,9 +5,14 @@ answer. No chat UI, no browser tab, no conversation — just one question in
 and a short answer out.
 
 ```
-$ qq "what is the archaic version of YOUR?"
-The archaic version of "your" is "thy" (possessive) or "thine" before a
-vowel sound — e.g. "thy sword", "thine eyes".
+$ qq "how do I undo the last commit but keep my changes"
+Run `git reset --soft HEAD~1` — it rewinds the commit but leaves
+your changes staged, ready to re-commit.
+
+$ qq explain SIGKILL
+SIGKILL is an uncatchable, unignorable Unix signal used to immediately
+terminate a process; it can't be handled or cleaned up by the program,
+so the OS stops it right away.
 ```
 
 Quotes are only needed when the question contains shell metacharacters
@@ -62,8 +67,10 @@ $ cat diff.patch | qq --unless "is this change risky?" && auto_merge
 ```
 
 The prose answer still prints, so you see *why* the model decided.
-Exit `0` = yes, `1` = no, `2` = unknown. (See the
-[security notes](SECURITY.md) before pointing this at untrusted input.)
+Exit `0` = yes, `1` = no, `2` = unknown. See
+[`docs/decision-mode.md`](docs/decision-mode.md) for the full contract
+and [`SECURITY.md`](SECURITY.md) before pointing this at untrusted
+input.
 
 **Keep a private invocation out of history**
 
@@ -105,85 +112,46 @@ $ qq --configure
 ```
 
 It asks for a profile name, a provider, an API key, and a default model.
-You can run it again any time to add another profile or update an
-existing one. Profile config lives in `~/.config/qq/credentials.toml`
-(mode `0600`) and is plain TOML if you'd rather edit it by hand.
+Run it again any time to add another profile or update an existing one.
+Config lives in `~/.config/qq/` and is plain TOML if you'd rather edit
+it by hand.
 
-### Multiple profiles
-
-A profile is a saved `{provider, model, API key}` combo. You can switch
-between them per-invocation:
+Switch profiles per-invocation, or skip the config file entirely:
 
 ```
 $ qq -p grok "..."             # use the 'grok' profile
 $ QQ_PROFILE=local qq "..."    # via env var
 $ qq -m gpt-5.4-mini "..."     # override just the model
+
+# env-var-only mode, no config file
+$ QQ_API_KEY=... QQ_BASE_URL=... QQ_MODEL=... qq "..."
 ```
 
-When no profile is specified, `qq` uses the one literally named
-`default`.
+Any OpenAI-compatible endpoint works — OpenAI, xAI, Anthropic,
+OpenRouter, Groq, DeepSeek, Ollama (local), or a custom URL. See
+[`docs/providers.md`](docs/providers.md) for the list and default
+models.
 
-### No config file at all
+## Documentation
 
-You can skip the config file entirely and drive `qq` with environment
-variables — handy for CI or one-off scripts:
+- [`docs/`](docs/README.md) — how `qq` behaves, flags, config, and
+  caveats.
+- [`SECURITY.md`](SECURITY.md) — threat model and what to avoid
+  piping in.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — build, test, project layout.
 
-```
-$ export QQ_API_KEY=sk-...
-$ export QQ_BASE_URL=https://api.openai.com/v1
-$ export QQ_MODEL=gpt-5.4-mini
-$ qq "..."
-```
+Highlights:
 
-## Supported providers
-
-Any OpenAI-compatible endpoint works. `qq --configure` pre-fills the
-base URL and a sensible default model for the ones below:
-
-| Provider | Base URL | Default model suggestion | Notes |
-|---|---|---|---|
-| OpenAI | `https://api.openai.com/v1` | `gpt-5.4-mini` | |
-| xAI / Grok | `https://api.x.ai/v1` | `grok-4-1-fast-non-reasoning` | |
-| Anthropic | `https://api.anthropic.com/v1` | `claude-haiku-4-5` | experimental |
-| OpenRouter | `https://openrouter.ai/api/v1` | `x-ai/grok-4.1-fast` | experimental |
-| Groq | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` | experimental |
-| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` | experimental |
-| Ollama (local) | `http://localhost:11434/v1` | `llama3.2` | experimental, runs offline |
-| Custom | you provide it | you provide it | anything OpenAI-compatible |
-
-The default picks target the cheap/fast tier — `qq`'s job is short
-answers, not reasoning. You can override the model per-invocation with
-`-m`, or change the profile default by re-running `qq --configure`.
-
-## History
-
-Every non-incognito invocation is logged to
-`~/.local/state/qq/history.jsonl` (one JSON record per line — question,
-answer, timestamp, model). The file caps at 1000 entries and rotates
-oldest-first.
-
-Ways to keep content out of history:
-
-- `--incognito` on a single invocation.
-- Set `incognito = true` on a profile you reserve for sensitive work;
-  then `qq -p work` is automatically incognito.
-- Disable it globally by setting `history.enabled = false` in
-  `~/.config/qq/config.toml`.
-
-## Exit codes
-
-| Code | Meaning |
-|---|---|
-| 0 | success (or "yes" in `--if`, "no" in `--unless`) |
-| 1 | "no" in `--if`, "yes" in `--unless` |
-| 2 | unknown — model couldn't decide |
-| 10 | runtime error (network, provider 5xx, timeout) |
-| 11 | usage / config error (bad flags, missing profile) |
-| 130 | interrupted (Ctrl-C) |
-
-Codes `1` and `2` are reserved for decision mode even outside it — so
-`qq "..." && next` and `qq --if "..." && next` behave the same way when
-something goes wrong.
+- [Asking a question](docs/asking.md) — input shapes, quoting, the
+  system prompt.
+- [Profiles](docs/profiles.md) and [configuration](docs/config.md) —
+  precedence, env vars, file layout.
+- [Decision mode](docs/decision-mode.md) — `--if` / `--unless` and
+  the yes/no/unknown contract.
+- [History](docs/history.md) — record shape, rotation, opt-outs.
+- [Exit codes](docs/exit-codes.md) — full table and script
+  patterns.
+- [Troubleshooting](docs/troubleshooting.md) — common failures.
 
 ## Security
 
