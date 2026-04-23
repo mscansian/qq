@@ -1,32 +1,64 @@
 # Contributing to qq
 
-Thanks for taking a look. `qq` is intentionally small: one question in,
-one short answer out. Contributions that keep it small are very welcome;
-contributions that turn it into a chatbot or an agent are not
-(see the "Non-goals" section in `DESIGN.md`).
+Thanks for taking a look. `qq` tries to be a Unix tool in the old
+sense: small, composable, does one thing. That thing is *ask a
+question, get a short answer.* Contributions that sharpen that use
+case are welcome; contributions that turn it into something else are
+not.
 
-## Overview
+## Philosophy
 
-`qq` is a Go CLI that sends a single chat completion to an
-OpenAI-compatible endpoint and streams the response to stdout. The
-design is captured in two documents:
+Think `grep`, `jq`, `curl` — tools you reach for without thinking,
+that compose with pipes, that stay out of your way. `qq` aims for
+that bar. A few consequences:
 
-- [`DESIGN.md`](DESIGN.md) — product-level description: what it is,
-  who it's for, what the UX looks like.
-- [`ENGINEERING.md`](ENGINEERING.md) — technical plan: language,
-  dependencies, layout, error codes, streaming, history.
-- [`SECURITY.md`](SECURITY.md) — threat model and known risks.
+- **One question in, one answer out.** No interactive loop, no
+  conversation, no session state beyond optional history.
+- **Plain text.** Stdout is the answer; stderr is for diagnostics and
+  the spinner. No markdown rendering, no colors, no TTY-conditional
+  formatting. Output that pipes cleanly into `grep`, `awk`, or a file.
+- **Stays out of the way.** Fast to type, fast to start streaming, no
+  prompts you have to dismiss, no config wizards you have to re-run.
+- **Provider-agnostic.** Any OpenAI-compatible endpoint works.
 
-Read those first if you're planning anything non-trivial — they
-explain *why* the code is the way it is, and a fair amount of what
-looks like complexity (`<content>` wrapping, control-byte filter,
-decision-mode state machine) is load-bearing for a specific threat or
-usability property.
+The sharpest way to think about scope: if a feature pushes `qq`
+toward *conversation*, *agency*, or *content processing beyond a short
+answer*, it's probably out. Open an issue to discuss before coding so
+you don't burn time on something that won't merge.
+
+## Security stance
+
+`qq` lives in your shell, not a sandbox. That shapes how we think
+about safety: we take care not to hand attackers a free channel
+through piped content or model output, but we also don't block your
+choices behind prompts or "are you sure?" gates. The bar is simple —
+**`qq` should never do something you didn't ask for.**
+
+Concretely, a few things in the codebase exist for this reason and
+shouldn't be weakened without a clear reason in the PR:
+
+- **Untrusted data is framed as data.** Stdin combined with an
+  argument gets wrapped in `<content>...</content>` tags, with the
+  closing tag neutralized inside the payload. The system prompt
+  treats anything inside those tags as data, not instructions.
+- **The model can't poke the terminal.** Streamed output passes
+  through a control-byte filter that strips C0/C1 bytes (keeping
+  `\n` / `\t`), so a crafted response can't set the terminal title,
+  hit clipboard-via-OSC, or rewrite earlier lines.
+- **Exit codes stay honest.** Decision mode (`--if` / `--unless`)
+  uses `0`/`1`/`2` for yes/no/unknown; runtime and config errors
+  start at `10`. That separation is why `qq --if "..." && action`
+  doesn't fire on "API was down".
+
+These are bar-raisers, not guarantees. Prompt injection isn't fully
+solvable at the prompt level — decision mode on attacker-controlled
+stdin is still unsafe, and [`SECURITY.md`](SECURITY.md) documents
+that honestly rather than pretending otherwise.
 
 ## Requirements
 
 - Go 1.22 or newer (developed against Go 1.25).
-- That's it. No Node, no Python, no Docker.
+- No Node, no Python, no Docker.
 
 ## Getting the code
 
@@ -37,47 +69,10 @@ $ go build ./cmd/qq
 $ ./qq --help
 ```
 
-## Project layout
-
-```
-cmd/qq/
-  main.go                 entrypoint — just calls cli.Execute
-internal/
-  cli/
-    root.go               cobra root command, flag wiring, exit code mapping
-    configure.go          interactive --configure flow
-    spinner.go            one-character TTY spinner
-  config/
-    credentials.go        credentials.toml loader + save
-    config.go             config.toml loader + XDG paths
-    resolve.go            profile resolution ladder (flags → env → profile)
-  client/
-    client.go             openai-go wrapper, SSE streaming loop
-    systemprompt.go       baked-in system prompt + decision format block
-    filter.go             UTF-8-aware control-byte stripper
-    decision.go           decision-mode output state machine
-  history/
-    history.go            JSONL append + rotation
-  input/
-    input.go              stdin detection, arg+stdin combination, size cap
-```
-
-Each package has a single responsibility and is unit-testable without
-the others. `cli` depends on everything; everything else avoids
-depending on `cli`.
-
 ## Running tests
 
 ```
 $ go test ./...
-```
-
-All tests are unit or in-process integration — there are no tests
-against real providers. The client layer uses `httptest.Server` to
-impersonate an OpenAI-compatible SSE stream, which covers request
-shape, streaming, control-byte filtering, and decision parsing.
-
-```
 $ go vet ./...
 ```
 
@@ -87,47 +82,34 @@ $ go vet ./...
 $ go build -o qq ./cmd/qq
 ```
 
-Or inject a version string:
-
-```
-$ go build -ldflags "-X github.com/mscansian/qq/internal/cli.Version=$(git describe --tags --always)" -o qq ./cmd/qq
-```
 
 ## How to add a feature
 
-1. **Read `DESIGN.md` and `ENGINEERING.md`.** If your feature changes
-   the product identity (multi-turn, tool use, image input), it
-   probably belongs under "Proposed expansions" rather than being
-   merged. Open an issue to discuss before coding.
-2. **Find the right package.** Most features naturally fit one of the
-   existing packages. Resist the urge to create a new one for a single
-   function.
-3. **Keep it testable.** Prefer table-driven tests (`map[string]struct`)
-   and behavioral tests over mock-heavy ones. If you need to inject
-   an interface, define it at the consumer's boundary, not upfront
-   everywhere.
-4. **Keep the scope tight.** Only change what your feature needs.
-   Unrelated refactors and "while I'm here" cleanups make PRs harder
-   to review — ship them separately.
-5. **Update the docs you touched.** If you add a flag, update
-   `README.md` and the CLI surface table in `ENGINEERING.md`.
+1. **Re-read "Philosophy" and "Security stance" above.** If your
+   feature pushes against either, open an issue before coding.
+2. **Keep the scope tight.** Only change what your feature needs.
+   Unrelated refactors and "while I'm here" cleanups belong in
+   separate PRs.
+3. **Update the docs you touched.** If you add a flag, update
+   `README.md` and this file.
 
-## Code style
+## AI-assisted PRs
 
-This repo follows the Go style guide at
-[`go-style`](https://github.com/matheus-consoli/claude-settings) in
-broad strokes: short names in small scopes, table-driven tests, no
-unnecessary interfaces, godoc comments only when they add information
-beyond the signature. If you're deviating from an existing pattern,
-please explain why in the PR description.
+Vibe-coded / AI-assisted PRs are fine — I use the same tools. What's
+expected:
 
-## Commit messages
+- **Read your own PR before opening it.** If you haven't, I'll be able
+  to tell.
+- **Make sure it actually works.** Tests pass, the feature does what
+  the description claims, the diff doesn't include unrelated churn
+  the model threw in.
+- **Write the description yourself.** A human-readable "what and why"
+  in a few sentences. Not a model-generated wall of bullet points.
 
-- One-line header, imperative voice, ≤72 characters.
-- A body is optional; use it to explain *why*, not *what*. Good
-  candidates: trade-offs, constraints, the bug this fixes, why you
-  chose this approach over an alternative.
-- Squash fixups into the commit they fix before opening the PR.
+PRs that look like they were submitted without the author engaging —
+broken tests, scope creep, generated noise, changes that clearly
+don't fit the philosophy above — will be closed without detailed
+feedback. The bar isn't "no AI"; it's "a human stood behind this".
 
 ## Reporting bugs
 
