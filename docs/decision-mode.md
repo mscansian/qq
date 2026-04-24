@@ -86,6 +86,19 @@ secrets in this diff?") read the prose before acting. For gates that
 actually need to be correct, use a deterministic classifier. The
 full write-up is in [SECURITY.md](../SECURITY.md#3-the-verdict-is-a-lossy-summary-of-the-models-judgment).
 
+## Reproducibility
+
+Decision mode pins the request temperature to `0`, so repeated
+runs on the same input with the same model return the same
+verdict. How strong that reproducibility is depends on the
+provider. Different models or providers can still disagree on
+borderline inputs — reproducibility is within-model, not
+across-model.
+
+Normal mode (no `--if`/`--unless`) keeps the provider's default
+temperature, so generation queries like `qq "a .gitignore for X"`
+stay re-rollable.
+
 ## Safety: do not use on untrusted input
 
 When the content reaching the model is attacker-influenced — a log

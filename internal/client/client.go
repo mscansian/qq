@@ -55,7 +55,7 @@ func Run(ctx context.Context, req Request, stdout, stderr io.Writer) (*Response,
 		option.WithBaseURL(normalizeBaseURL(req.BaseURL)),
 	)
 
-	stream := client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
+	params := openai.ChatCompletionNewParams{
 		Model: req.Model,
 		Messages: []openai.ChatCompletionMessageParamUnion{
 			openai.SystemMessage(req.SystemPrompt),
@@ -64,7 +64,16 @@ func Run(ctx context.Context, req Request, stdout, stderr io.Writer) (*Response,
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: param.NewOpt(true),
 		},
-	})
+	}
+	if req.Decision {
+		// Pin temperature to 0 in decision mode for reproducibility —
+		// the 1-bit verdict is already a lossy summary, sampling
+		// variance on top turns identical inputs into different exit
+		// codes. Normal mode keeps provider defaults so generation
+		// queries ("a .gitignore for X") stay re-rollable.
+		params.Temperature = param.NewOpt(0.0)
+	}
+	stream := client.Chat.Completions.NewStreaming(ctx, params)
 
 	proc := newProcessor(stdout, stderr, req.Decision)
 
