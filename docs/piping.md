@@ -41,6 +41,29 @@ $ qq "give me JSON with name and email for a fake user" | jq .name
 A small spinner is shown on stderr while waiting for the first token.
 Suppressed when stderr isn't a terminal (e.g. `2>log`).
 
+## Stats
+
+`--stats` prints a one-line summary to stderr after the response:
+
+```
+$ qq --stats "capital of France"
+Paris.
+qq: stats: tokens=12/3 (15 total) latency=0.82s model=gpt-5.4-mini finish=stop
+```
+
+Fields:
+
+- `tokens=PROMPT/COMPLETION (TOTAL, CACHED cached)` — `cached=` appears
+  only when the provider reported a prompt-cache hit. Shows
+  `tokens=unknown` when the provider doesn't return usage.
+- `latency` — wall-clock seconds from request start to stream close.
+- `model` — the resolved model actually used.
+- `finish` — the provider's terminal reason (`stop`, `length`,
+  `content_filter`, ...). Omitted when the stream ended without one.
+
+Stats are always on stderr, so stdout stays clean for piping. Not
+printed on errors or interrupted streams — use the exit code for that.
+
 ## Control bytes
 
 Terminal control bytes are stripped from output. See

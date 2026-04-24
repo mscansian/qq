@@ -42,6 +42,7 @@ type rootFlags struct {
 	maxInput    int64
 	configure   bool
 	showVersion bool
+	stats       bool
 }
 
 // Version is set via -ldflags at build time.
@@ -79,6 +80,7 @@ func Execute() int {
 	cmd.Flags().Int64Var(&flags.maxInput, "max-input", 0, "cap stdin bytes (default 200KiB)")
 	cmd.Flags().BoolVar(&flags.configure, "configure", false, "interactive setup (adds/edits profiles)")
 	cmd.Flags().BoolVar(&flags.showVersion, "version", false, "print version and exit")
+	cmd.Flags().BoolVar(&flags.stats, "stats", false, "print token usage and timing to stderr after the response")
 
 	// Wire SIGINT → cancel the request context.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -188,6 +190,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	}
 
 	// Start the stream; the spinner clears on first write.
+	start := time.Now()
 	resp, runErr := client.Run(ctx, client.Request{
 		BaseURL:      resolved.BaseURL,
 		APIKey:       resolved.APIKey,
@@ -196,8 +199,13 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 		UserMessage:  in.UserMessage,
 		Decision:     decisionMode,
 	}, newFirstWriteTap(modelOut, spin.clear), stderr)
+	elapsed := time.Since(start)
 
 	spin.stop()
+
+	if flags.stats && resp != nil && runErr == nil {
+		fmt.Fprintln(stderr, formatStats(resp, resolved.Model, elapsed))
+	}
 
 	// Record history regardless of error — matches what was printed.
 	skipHistory := flags.incognito || resolved.Incognito || !cfg.HistoryEnabled()
@@ -306,4 +314,27 @@ func (t *firstWriteTap) Write(b []byte) (int, error) {
 		t.first.Do(t.fn)
 	}
 	return t.w.Write(b)
+}
+
+// formatStats renders the --stats line. `cached=` and `finish=` are
+// omitted rather than printed with empty/zero values, so the line stays
+// terse for providers that don't report them.
+func formatStats(resp *client.Response, model string, elapsed time.Duration) string {
+	var b strings.Builder
+	b.WriteString("qq: stats: ")
+	if resp.UsageKnown {
+		fmt.Fprintf(&b, "tokens=%d/%d (%d total",
+			resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+		if resp.Usage.CachedTokens > 0 {
+			fmt.Fprintf(&b, ", %d cached", resp.Usage.CachedTokens)
+		}
+		b.WriteString(")")
+	} else {
+		b.WriteString("tokens=unknown")
+	}
+	fmt.Fprintf(&b, " latency=%.2fs model=%s", elapsed.Seconds(), model)
+	if resp.FinishReason != "" {
+		fmt.Fprintf(&b, " finish=%s", resp.FinishReason)
+	}
+	return b.String()
 }

@@ -36,13 +36,20 @@ type Response struct {
 	// (interrupted stream, provider that doesn't support include_usage).
 	Usage      Usage
 	UsageKnown bool
+	// FinishReason is the terminal reason reported on the last choice
+	// chunk ("stop", "length", "content_filter", ...). Empty when the
+	// provider didn't supply one (interrupted stream, unusual provider).
+	FinishReason string
 }
 
-// Usage is the token-count breakdown for one request.
+// Usage is the token-count breakdown for one request. CachedTokens is a
+// subset of PromptTokens that the provider served from its prompt cache,
+// zero when not reported.
 type Usage struct {
 	PromptTokens     int64
 	CompletionTokens int64
 	TotalTokens      int64
+	CachedTokens     int64
 }
 
 // Run opens an SSE stream to the configured endpoint and pipes deltas
@@ -79,6 +86,7 @@ func Run(ctx context.Context, req Request, stdout, stderr io.Writer) (*Response,
 
 	var usage Usage
 	var usageKnown bool
+	var finishReason string
 
 	for stream.Next() {
 		evt := stream.Current()
@@ -90,11 +98,15 @@ func Run(ctx context.Context, req Request, stdout, stderr io.Writer) (*Response,
 				PromptTokens:     evt.Usage.PromptTokens,
 				CompletionTokens: evt.Usage.CompletionTokens,
 				TotalTokens:      evt.Usage.TotalTokens,
+				CachedTokens:     evt.Usage.PromptTokensDetails.CachedTokens,
 			}
 			usageKnown = true
 		}
 		if len(evt.Choices) == 0 {
 			continue
+		}
+		if r := evt.Choices[0].FinishReason; r != "" {
+			finishReason = r
 		}
 		content := evt.Choices[0].Delta.Content
 		if content == "" {
@@ -119,7 +131,12 @@ func Run(ctx context.Context, req Request, stdout, stderr io.Writer) (*Response,
 		return nil, fmt.Errorf("finalize output: %w", err)
 	}
 
-	resp := &Response{Prose: proc.Prose(), Usage: usage, UsageKnown: usageKnown}
+	resp := &Response{
+		Prose:        proc.Prose(),
+		Usage:        usage,
+		UsageKnown:   usageKnown,
+		FinishReason: finishReason,
+	}
 	if d, ok := proc.Decision(); ok {
 		resp.Decision = d
 	}
