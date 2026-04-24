@@ -35,7 +35,7 @@ one and it runs the show. `qq` is a tool the shell calls. That's why
 it fits inside scripts, pipes, cron jobs, and git hooks, and they
 don't.
 
-## Shapes
+## What it can do
 
 **Ask** — one question, one answer.
 
@@ -74,6 +74,10 @@ $ git diff --staged | qq --unless "does this touch the public API?" && git commi
 Exit `0` = yes, `1` = no, `2` = unknown — the prose still prints.
 Full contract in [`docs/decision-mode.md`](docs/decision-mode.md).
 See [`SECURITY.md`](SECURITY.md) before piping untrusted input.
+
+This barely scratches the surface. `qq` plugs into everything you
+already do — pipes, `&&`, loops, git hooks, cron. Go build something
+with it. More in [Recipes](docs/recipes.md).
 
 ## Install
 
@@ -151,6 +155,7 @@ Highlights:
 - [Exit codes](docs/exit-codes.md) — full table and script
   patterns.
 - [Troubleshooting](docs/troubleshooting.md) — common failures.
+- [Recipes](docs/recipes.md) — CI retry, failure summaries, anti-patterns.
 
 ## Contributing
 

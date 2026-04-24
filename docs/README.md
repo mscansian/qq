@@ -21,6 +21,10 @@ path.
 - [History](history.md)
 - [Troubleshooting](troubleshooting.md)
 
+## Recipes
+
+- [Recipes](recipes.md) — copy-pasteable patterns (CI retry, failure summaries, transformations).
+
 ## Also
 
 - [SECURITY.md](../SECURITY.md) — threat model.
