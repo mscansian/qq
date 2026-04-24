@@ -136,12 +136,11 @@ stay re-rollable.
 
 ## Truncation and passthrough
 
-If stdin exceeds `--max-input` and `input.on_overflow = truncate`
-(the default), the passthrough carries only the truncated prefix.
-The warning on stderr already signals this — but it means the
-downstream command sees a short read, not the full input. If that
-matters, either raise `--max-input` or set
-`input.on_overflow = error` so `qq` exits before running the model.
+By default `qq` refuses oversize stdin (exits `11`) so the model
+never judges a prefix you didn't notice was clipped. If you set
+`input.on_overflow = truncate`, the model sees the prefix *and* the
+passthrough carries only that prefix — the downstream command gets
+a short read.
 
 ## Safety: do not use on untrusted input
 

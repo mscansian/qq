@@ -23,7 +23,7 @@ max_entries = 1000
 
 [input]
 max_bytes = 204800
-on_overflow = "truncate"
+on_overflow = "error"
 ```
 
 ### Fields
@@ -33,7 +33,7 @@ on_overflow = "truncate"
 | `history.enabled` | bool | `true` | Whether to append Q&A to `history.jsonl`. |
 | `history.max_entries` | int | `1000` | Rotation cap. See [history.md](history.md). |
 | `input.max_bytes` | int | `204800` (200 KiB) | Cap on stdin bytes. Overridden by `--max-input`. |
-| `input.on_overflow` | string | `"truncate"` | What to do when stdin exceeds the cap. `"truncate"` cuts + warns + proceeds; `"error"` refuses the call and exits `11`. |
+| `input.on_overflow` | string | `"error"` | What to do when stdin exceeds the cap. `"error"` refuses the call and exits `11`; `"truncate"` cuts + warns + proceeds. |
 
 Unknown fields are rejected.
 

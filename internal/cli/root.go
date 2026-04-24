@@ -165,7 +165,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	}
 	if in.Truncated {
 		if cfg.InputOnOverflow() == config.OnOverflowError {
-			return usageErrorf("stdin exceeds %d bytes; raise the cap with --max-input or set input.on_overflow = %q", maxOrDefault(maxInput), config.OnOverflowTruncate)
+			return usageErrorf("stdin exceeds %d bytes; raise --max-input or set input.on_overflow = %q", maxOrDefault(maxInput), config.OnOverflowTruncate)
 		}
 		fmt.Fprintf(stderr, "qq: stdin truncated at %d bytes; use --max-input to override\n", maxOrDefault(maxInput))
 	}

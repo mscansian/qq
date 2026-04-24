@@ -40,27 +40,31 @@ Only one decision-mode flag at a time. See
 
 Exits `11`.
 
-## `qq: stdin truncated at N bytes; use --max-input to override`
+## `qq: stdin exceeds N bytes; raise --max-input or set input.on_overflow = "truncate"`
 
 Your stdin exceeded the cap (200 KiB by default, or whatever
-`input.max_bytes` is set to in `config.toml`). `qq` proceeds with
-the truncated payload; the answer may be incomplete. Raise the
-cap with `--max-input=BYTES` (raw byte count, no suffixes):
+`input.max_bytes` is set to in `config.toml`). `qq` refuses the
+call rather than judge a prefix. Raise the cap with
+`--max-input=BYTES` (raw byte count, no suffixes):
 
 ```
 $ cat big.log | qq --max-input=1048576 "summarize"
 ```
 
-Not fatal — exits `0` if the request succeeds.
-
-## `qq: stdin exceeds N bytes; raise the cap with --max-input or set input.on_overflow = "truncate"`
-
-You set `input.on_overflow = "error"` in `config.toml` and stdin
-exceeded the cap. `qq` refuses the call rather than sending a
-truncated prompt. Either raise `--max-input` / `input.max_bytes`,
-or switch `on_overflow` back to `"truncate"`.
+If you'd rather accept a prefix, set
+`input.on_overflow = "truncate"` in `config.toml`.
 
 Exits `11`.
+
+## `qq: stdin truncated at N bytes; use --max-input to override`
+
+You set `input.on_overflow = "truncate"` in `config.toml` and
+stdin exceeded the cap. `qq` proceeds with the truncated payload;
+the answer may be incomplete. Raise the cap with
+`--max-input=BYTES` (raw byte count, no suffixes), or revert to
+the default `input.on_overflow = "error"` to refuse oversize input.
+
+Not fatal — exits `0` if the request succeeds.
 
 ## `qq: model didn't follow decision format, treating as unknown`
 

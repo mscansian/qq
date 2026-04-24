@@ -48,5 +48,5 @@ Terminal control bytes are stripped from output. See
 
 ## Huge or binary stdin
 
-Stdin is truncated at 200 KiB by default; raise with `--max-input`. See
-[asking.md](asking.md#size-cap).
+Stdin is capped at 200 KiB by default and `qq` exits `11` above that;
+raise with `--max-input`. See [asking.md](asking.md#size-cap).

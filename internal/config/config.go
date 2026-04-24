@@ -20,7 +20,7 @@ type History struct {
 // Input settings (non-secret).
 type Input struct {
 	MaxBytes   int    `toml:"max_bytes,omitempty"`   // 0 → package default in internal/input
-	OnOverflow string `toml:"on_overflow,omitempty"` // "truncate" (default) or "error"
+	OnOverflow string `toml:"on_overflow,omitempty"` // "error" (default) or "truncate"
 }
 
 // OnOverflow values.
@@ -66,10 +66,12 @@ func (c *Config) InputMaxBytes() int {
 }
 
 // InputOnOverflow returns the configured oversize strategy, defaulting to
-// "truncate" when unset.
+// "error" when unset — a truncated verdict is judged on a prefix the user
+// may not notice is clipped, so failing loud is the safer default. Opt in
+// to "truncate" explicitly when you know the prefix is enough.
 func (c *Config) InputOnOverflow() string {
 	if c.Input.OnOverflow == "" {
-		return OnOverflowTruncate
+		return OnOverflowError
 	}
 	return c.Input.OnOverflow
 }
