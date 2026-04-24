@@ -1,64 +1,67 @@
-# qq — Quick Question
+# qq — the LLM as a Unix tool
 
-A tiny terminal assistant for quick questions. Type `qq`, ask, get an
-answer. No chat UI, no browser tab, no conversation — just one question in
-and a short answer out.
+Your shell already has `jq` for JSON, `grep` for patterns, `curl` for
+HTTP. `qq` is the LLM primitive: pipe text in, get text out, exit
+`0`/`1` for yes/no. One API call per invocation. No session, no chat
+UI, no filesystem access — it can't read your code or run commands,
+and doesn't want to.
 
-Works with any OpenAI-compatible provider (OpenAI, xAI, Anthropic, OpenRouter,
-Groq, DeepSeek, Ollama). You just need to configure your API key.
+Works with any OpenAI-compatible provider (OpenAI, xAI, Anthropic,
+OpenRouter, Groq, DeepSeek, Ollama). Bring your own API key.
 
 ```
-$ qq "how do I undo the last commit but keep my changes"
-Run `git reset --soft HEAD~1` — it rewinds the commit but leaves
-your changes staged, ready to re-commit.
+$ git diff --staged | qq "one-line commit header"
+Fix off-by-one in pagination bounds
 
+$ cat app.log | qq --if "real error?" && page_oncall
+
+$ qq "curl flag for following redirects"
+Use -L (or --location); curl doesn't follow redirects by default.
+```
+
+## What it's for
+
+`qq` treats the model as a text transform with an optional question.
+Pipe a diff in, get a commit header. Pipe logs in, ask which test
+failed. Pipe anything in, get back a yes/no exit code.
+
+Typing `qq "…"` to ask a one-off question works too, but the real
+job is composing with pipes, redirects, and `&&`/`||`.
+
+## How is this different from coding agents?
+
+Claude Code, opencode, aider are the top-level process — you start
+one and it runs the show. `qq` is a tool the shell calls. That's why
+it fits inside scripts, pipes, cron jobs, and git hooks, and they
+don't.
+
+## Shapes
+
+**Ask** — one question, one answer.
+
+```
 $ qq explain SIGKILL
 SIGKILL is an uncatchable, unignorable Unix signal used to immediately
 terminate a process; it can't be handled or cleaned up by the program,
 so the OS stops it right away.
 ```
 
-## Why you'd want it
-
-You already live in the terminal. Most of the stuff you'd type into
-ChatGPT is a one-liner: a unit conversion, a word you can't remember, a
-`grep` flag, a quick rephrase. Opening a browser tab for that is more
-friction than the question deserves.
-
-`qq` answers in one paragraph, streams the response as it's produced, and
-composes cleanly with pipes and shell operators.
-
-## Things you can do with it
-
-**Ask anything**
-
-```
-$ qq "curl flag for following redirects"
-Use -L (or --location); curl doesn't follow redirects by default.
-```
-
-**Interpret input**
+**Pipe** — stdin goes to the model alongside your question. Output is
+plain text, so it flows into whatever comes next:
 
 ```
 $ go test ./... 2>&1 | qq "which test is the real failure?"
 
-$ git diff --staged | qq "give me a one-line commit header"
-
 $ curl -s https://example.com/page | qq "what is this about?"
-```
 
-**Generate output** — output is always plain text, so it redirects
-and composes cleanly:
-
-```
 $ qq "list 5 common HTTP status codes, one per line" | grep 4
 404 Not Found
 
 $ qq "a .gitignore for a Python + Node project" > .gitignore
 ```
 
-**Decide in shell scripts** — `--if` and `--unless` turn the model's
-answer into an exit code so you can wire it up with `&&` and `||`:
+**Script** — `--if` and `--unless` turn the answer into an exit code,
+so `qq` wires up with `&&` and `||` like any other shell tool:
 
 ```
 # page only if the model thinks the log is a real error
@@ -68,8 +71,9 @@ $ cat app.log | qq --if "is this log showing a real error?" && page_oncall
 $ git diff --staged | qq --unless "does this touch the public API?" && git commit
 ```
 
-Exit `0` = yes, `1` = no, `2` = unknown — the prose still prints. Full
-contract in [`docs/decision-mode.md`](docs/decision-mode.md). See [`SECURITY.md`](SECURITY.md) before piping untrusted input.
+Exit `0` = yes, `1` = no, `2` = unknown — the prose still prints.
+Full contract in [`docs/decision-mode.md`](docs/decision-mode.md).
+See [`SECURITY.md`](SECURITY.md) before piping untrusted input.
 
 ## Install
 

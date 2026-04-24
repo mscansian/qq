@@ -54,7 +54,7 @@ func Execute() int {
 
 	cmd := &cobra.Command{
 		Use:   "qq [QUESTION...]",
-		Short: "Quick Question — a terminal assistant for quick questions",
+		Short: "A single-shot LLM you can pipe into, script with, and branch on",
 		// We handle --help ourselves so usage output doesn't print on errors.
 		SilenceUsage:  true,
 		SilenceErrors: true,
