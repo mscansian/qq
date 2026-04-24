@@ -128,6 +128,6 @@ See [history.md](history.md).
 
 ## I want more diagnostic output
 
-There is no verbose or debug flag in v1. Errors go to stderr with
+There is no verbose or debug flag. Errors go to stderr with
 enough context to act on them; internal mechanics (streaming
 state, request shape) are not exposed.

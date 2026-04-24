@@ -38,18 +38,3 @@ the happy path; this is the reference.
   protection, `base_url` as a credential-theft vector.
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — build, test, and project
   layout for contributors.
-
-## Not in scope for v1
-
-Called out so the absence isn't surprising. Each one is simple to
-add in code but changes the product's identity enough to need its
-own design treatment first:
-
-- **Continuation** (`--continue` / `-c`): resend the last Q&A as
-  context with a new follow-up. One-shot, not a chat loop.
-- **`--last`**: reprint the most recent answer without calling the
-  API.
-- **`--search <query>`**: fuzzy-search history for a past answer.
-- **Shell completion** for profiles and flags.
-- **Token counting**, response caching, OS-keychain integration,
-  structured/verbose logging.

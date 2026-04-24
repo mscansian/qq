@@ -9,8 +9,8 @@ reflects the model's verdict so you can compose with `&&`, `||`, or
 # run only if the model says yes
 $ qq --if "is this log showing a real error?" < app.log && page_oncall
 
-# run only if the model says no
-$ cat diff.patch | qq --unless "is this change risky?" && auto_merge
+# open a PR only if the diff doesn't have debug prints left in it
+$ git diff main | qq --unless "any debug prints or leftover console.logs?" && gh pr create
 ```
 
 The prose answer still prints — you see *why* the model decided:

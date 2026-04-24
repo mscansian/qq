@@ -15,10 +15,6 @@ terminate a process; it can't be handled or cleaned up by the program,
 so the OS stops it right away.
 ```
 
-Quotes are only needed when the question contains shell metacharacters
-(`?`, `*`, `|`, `&`, `!`, `$`, backticks). Plain sentences work
-unquoted: `qq explain SIGKILL`.
-
 ## Why you'd want it
 
 You already live in the terminal. Most of the stuff you'd type into
@@ -34,24 +30,26 @@ composes cleanly with pipes and shell operators.
 **Ask anything**
 
 ```
-$ qq "convert 180 lbs to kg"
-180 pounds is approximately 81.6 kg.
+$ qq "curl flag for following redirects"
+Use -L (or --location); curl doesn't follow redirects by default.
 ```
 
 **Pipe content in**
 
 ```
-$ cat README.md | qq "summarize in 3 bullets"
+$ go test ./... 2>&1 | qq "which test is the real failure?"
+$ git diff --staged | qq "give me a one-line commit header"
 $ curl -s https://example.com/page | qq "what is this about?"
-$ cat error.log | qq "why is this failing?"
 ```
 
-**Pipe content out** — output is always plain text, so `grep`, `awk`,
-`jq` all work:
+**Pipe content out** — output is always plain text, so it redirects
+and composes cleanly:
 
 ```
 $ qq "list 5 common HTTP status codes, one per line" | grep 4
 404 Not Found
+
+$ qq "a .gitignore for a Python + Node project" > .gitignore
 ```
 
 **Use it as a yes/no gate in shell scripts** — `--if` and `--unless`
@@ -62,8 +60,8 @@ turn the model's answer into an exit code so you can wire it up with
 # page only if the model thinks the log is a real error
 $ qq --if "is this log showing a real error?" < app.log && page_oncall
 
-# auto-merge only if the model is confident the diff is safe
-$ cat diff.patch | qq --unless "is this change risky?" && auto_merge
+# commit only if the diff doesn't sneak in a public-API change
+$ git diff --staged | qq --unless "does this touch the public API?" && git commit
 ```
 
 The prose answer still prints, so you see *why* the model decided.
