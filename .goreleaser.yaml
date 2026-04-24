@@ -37,3 +37,8 @@ changelog:
       - "^test:"
       - "^ci:"
       - "^chore:"
+
+release:
+  header:
+    from_file:
+      path: ./release-header.md

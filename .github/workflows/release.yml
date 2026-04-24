@@ -19,6 +19,34 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Install qq
+        env:
+          QQ_VERSION: v0.2.0
+        run: |
+          curl -fsSL "https://github.com/mscansian/qq/releases/download/${QQ_VERSION}/qq-linux-amd64" \
+            -o /usr/local/bin/qq && chmod +x /usr/local/bin/qq
+
+      - name: Resolve previous tag
+        id: prev
+        run: |
+          prev=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          echo "tag=$prev" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release summary
+        env:
+          QQ_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QQ_BASE_URL: https://api.openai.com/v1
+          QQ_MODEL: gpt-5.4-mini
+          PREV: ${{ steps.prev.outputs.tag }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          range="${PREV:+$PREV..}${TAG}"
+          git log --no-merges --format='%B%n---%n' "$range" \
+            | qq "Write a short release paragraph (2-3 short sentences). Start with 'This release'. This is NOT a change enumeration — it is a highlights summary. Lead with the single most notable user-facing change and explain what it means. Optionally mention one more significant change. Roll everything else into a brief trailing clause like 'plus smaller improvements to X and Y.'. Exclude entirely: internal refactors, tests, CI changes, and dependency bumps. Prose only — no bullets, no headings, no preamble. Use short declarative sentences." \
+            > release-header.md
+          cat release-header.md
+
       - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
