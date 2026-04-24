@@ -4,6 +4,9 @@ A tiny terminal assistant for quick questions. Type `qq`, ask, get an
 answer. No chat UI, no browser tab, no conversation — just one question in
 and a short answer out.
 
+Works with any OpenAI-compatible provider (OpenAI, xAI, Anthropic, OpenRouter,
+Groq, DeepSeek, Ollama). You just need to configure your API key.
+
 ```
 $ qq "how do I undo the last commit but keep my changes"
 Run `git reset --soft HEAD~1` — it rewinds the commit but leaves
@@ -34,15 +37,17 @@ $ qq "curl flag for following redirects"
 Use -L (or --location); curl doesn't follow redirects by default.
 ```
 
-**Pipe content in**
+**Interpret input**
 
 ```
 $ go test ./... 2>&1 | qq "which test is the real failure?"
+
 $ git diff --staged | qq "give me a one-line commit header"
+
 $ curl -s https://example.com/page | qq "what is this about?"
 ```
 
-**Pipe content out** — output is always plain text, so it redirects
+**Generate output** — output is always plain text, so it redirects
 and composes cleanly:
 
 ```
@@ -52,29 +57,19 @@ $ qq "list 5 common HTTP status codes, one per line" | grep 4
 $ qq "a .gitignore for a Python + Node project" > .gitignore
 ```
 
-**Use it as a yes/no gate in shell scripts** — `--if` and `--unless`
-turn the model's answer into an exit code so you can wire it up with
-`&&` and `||`:
+**Decide in shell scripts** — `--if` and `--unless` turn the model's
+answer into an exit code so you can wire it up with `&&` and `||`:
 
 ```
 # page only if the model thinks the log is a real error
-$ qq --if "is this log showing a real error?" < app.log && page_oncall
+$ cat app.log | qq --if "is this log showing a real error?" && page_oncall
 
 # commit only if the diff doesn't sneak in a public-API change
 $ git diff --staged | qq --unless "does this touch the public API?" && git commit
 ```
 
-The prose answer still prints, so you see *why* the model decided.
-Exit `0` = yes, `1` = no, `2` = unknown. See
-[`docs/decision-mode.md`](docs/decision-mode.md) for the full contract
-and [`SECURITY.md`](SECURITY.md) before pointing this at untrusted
-input.
-
-**Keep a private invocation out of history**
-
-```
-$ qq --incognito "paraphrase this: ..."
-```
+Exit `0` = yes, `1` = no, `2` = unknown — the prose still prints. Full
+contract in [`docs/decision-mode.md`](docs/decision-mode.md). See [`SECURITY.md`](SECURITY.md) before piping untrusted input.
 
 ## Install
 
@@ -98,8 +93,8 @@ $ curl -L https://github.com/mscansian/qq/releases/latest/download/qq-linux-amd6
 $ chmod +x /usr/local/bin/qq
 ```
 
-`qq` is a single static binary — no Python, no Node, no package manager
-needed to run it.
+Before your first question, you'll need a provider API key — see
+[Configure](#configure) below.
 
 ## Configure
 
@@ -111,8 +106,10 @@ $ qq --configure
 
 It asks for a profile name, a provider, an API key, and a default model.
 Run it again any time to add another profile or update an existing one.
-Config lives in `~/.config/qq/` and is plain TOML if you'd rather edit
-it by hand.
+
+Need a key? [OpenAI](https://platform.openai.com/api-keys) ·
+[xAI](https://console.x.ai) (API Keys section). For other providers,
+see [`docs/providers.md`](docs/providers.md).
 
 Switch profiles per-invocation, or skip the config file entirely:
 
@@ -125,10 +122,8 @@ $ qq -m gpt-5.4-mini "..."     # override just the model
 $ QQ_API_KEY=... QQ_BASE_URL=... QQ_MODEL=... qq "..."
 ```
 
-Any OpenAI-compatible endpoint works — OpenAI, xAI, Anthropic,
-OpenRouter, Groq, DeepSeek, Ollama (local), or a custom URL. See
-[`docs/providers.md`](docs/providers.md) for the list and default
-models.
+Any OpenAI-compatible endpoint works, including local ones like
+Ollama or a custom URL.
 
 ## Documentation
 
@@ -158,12 +153,6 @@ exchange to disk by default. Read [`SECURITY.md`](SECURITY.md) before
 piping secrets, credentials, production data, or untrusted input into
 it. The short version:
 
-- **Don't** use `--if` / `--unless` on content you didn't write — the
-  model's verdict is controllable by whoever wrote the content.
-- **Do** use `--incognito` (or an incognito profile) when the question
-  involves sensitive material.
-- **Do** protect `~/.config/qq/credentials.toml` like any other API-key
-  file.
 
 ## License
 
