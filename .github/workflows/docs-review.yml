@@ -1,6 +1,10 @@
 name: docs-review
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '**.md'
   pull_request:
     paths:
       - '**.md'
@@ -10,7 +14,9 @@ permissions:
 
 jobs:
   review:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -27,8 +33,17 @@ jobs:
           QQ_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           QQ_BASE_URL: https://api.openai.com/v1
           QQ_MODEL: gpt-5.4-mini
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
         run: |
-          git diff "$BASE" "$HEAD" -- '*.md' \
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE"
+            head="$PR_HEAD"
+          else
+            base="$PUSH_BEFORE"
+            head="$PUSH_AFTER"
+          fi
+          git diff "$base" "$head" -- '*.md' \
             | qq --unless "any typos, grammar errors, or broken markdown syntax in the added lines?"
