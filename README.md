@@ -32,12 +32,12 @@ job is composing with pipes, redirects, and `&&`/`||`.
 
 Claude Code, opencode, aider are the top-level process — you start
 one and it runs the show. `qq` is a tool the shell calls. That's why
-it fits inside scripts, pipes, cron jobs, and git hooks, and they
+it fits inside scripts, pipes, CI, cron jobs, and git hooks, and they
 don't.
 
 ## What it can do
 
-**Ask** — one question, one answer.
+### **Ask** — one question, one answer.
 
 ```
 $ qq explain SIGKILL
@@ -46,7 +46,7 @@ terminate a process; it can't be handled or cleaned up by the program,
 so the OS stops it right away.
 ```
 
-**Pipe** — stdin goes to the model alongside your question. Output is
+### **Pipe** — stdin goes to the model alongside your question. Output is
 plain text, so it flows into whatever comes next:
 
 ```
@@ -60,7 +60,7 @@ $ qq "list 5 common HTTP status codes, one per line" | grep 4
 $ qq "a .gitignore for a Python + Node project" > .gitignore
 ```
 
-**Script** — `--if` and `--unless` turn the answer into an exit code,
+### **Script** — `--if` and `--unless` turn the answer into an exit code,
 so `qq` wires up with `&&` and `||` like any other shell tool:
 
 ```
@@ -69,6 +69,9 @@ $ cat app.log | qq --if "is this log showing a real error?" && page_oncall
 
 # commit only if the diff doesn't sneak in a public-API change
 $ git diff --staged | qq --unless "does this touch the public API?" && git commit
+
+# in CI: skip heavy tests when the diff is docs-only
+$ git diff origin/main | qq --unless "any code changes?" && go test ./...
 ```
 
 Exit `0` = yes, `1` = no, `2` = unknown — the prose still prints.
@@ -76,8 +79,8 @@ Full contract in [`docs/decision-mode.md`](docs/decision-mode.md).
 See [`SECURITY.md`](SECURITY.md) before piping untrusted input.
 
 This barely scratches the surface. `qq` plugs into everything you
-already do — pipes, `&&`, loops, git hooks, cron. Go build something
-with it. More in [Recipes](docs/recipes.md).
+already do — pipes, `&&`, loops, git hooks, CI, cron. Go build
+something with it. More in [Recipes](docs/recipes.md).
 
 ## Install
 
