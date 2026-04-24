@@ -46,12 +46,9 @@ no API key, no base URL, no latency metrics.
 ## Rotation
 
 The file is capped at `history.max_entries` (default `1000`, set in
-[`config.toml`](config.md#configtoml)). On each append, if the
-line count exceeds the cap, `qq` rewrites the file keeping only
-the last `max_entries - 1` lines plus the new one.
-
-Rotation is done in-place rather than via a temp file — acceptable
-because history is not durability-critical.
+[`config.toml`](config.md#configtoml)). Once it's at the cap, each
+append trims the file back down by keeping only the most recent
+`max_entries` lines.
 
 ## Opt out
 
@@ -90,16 +87,6 @@ a one-line warning to stderr and returns the answer's exit code:
 ```
 qq: warning: failed to write history: <reason>
 ```
-
-## Concurrency
-
-There is no file locking. With `O_APPEND` on POSIX and record
-sizes well under `PIPE_BUF` (4 KB), individual appends are atomic
-and lines won't interleave within themselves. Rotation (full
-rewrite) is the only non-atomic operation, and it's rare — every
-Nth invocation, once the cap is reached. The tradeoff is
-occasional lost rotation if two processes rotate simultaneously,
-which is acceptable for a personal-use tool.
 
 ## Security: history captures what you piped in
 

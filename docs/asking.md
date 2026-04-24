@@ -26,25 +26,25 @@ sentences work unquoted:
 $ qq explain race conditions
 ```
 
-Multi-word unquoted questions are joined by the shell into a single
-argument. If any word contains a metacharacter, quote the whole
-question to keep the shell from expanding it.
+Multi-word questions work unquoted — `qq` joins the arguments
+with spaces. Quote only when a word contains a metacharacter, so
+the shell doesn't expand it before `qq` sees it.
 
 ## Argument rules
 
 | Situation | Behavior |
 |---|---|
-| Zero args, stdin is a TTY | prints help to stderr, exits `11` |
-| Zero args, stdin is piped | reads the question from stdin |
-| One arg | that's the question (may combine with piped stdin) |
-| Two or more args | usage error, exits `11` |
-| Single `-` arg | explicit stdin marker |
+| Arg present | that's the question (multiple args are joined with spaces) |
+| No arg, stdin is piped | stdin is the question |
+| No arg, stdin is a TTY | usage error, exits `11` |
+| Arg + piped stdin | arg is the instruction, stdin is the payload |
+| Single `-` as arg | force stdin even if it's a TTY |
 
 ## How arg + stdin combine
 
-When both are provided, the argument is the instruction and stdin is
-the content being operated on. `qq` sends them as one user message
-shaped like this:
+When both are provided, the argument is the instruction and stdin
+is the content being operated on. `qq` sends them as one user
+message shaped like this:
 
 ```
 {arg}
@@ -56,10 +56,14 @@ shaped like this:
 
 The `<content>` tags are a delimiter the baked-in system prompt
 explicitly frames as untrusted data — the model is told not to
-treat anything inside those tags as instructions. Any literal
-`</content>` inside stdin is escaped (rewritten as `<\/content>`)
-before wrapping, so a payload can't close the region early and
-smuggle instructions outside it.
+treat anything inside those tags as instructions. Literal
+`<content>` or `</content>` inside stdin is escaped before
+wrapping, so a payload can't close the region early and smuggle
+instructions outside it.
+
+Stdin-only invocations (no argument) are **not** wrapped — with no
+accompanying instruction, the payload itself is the question, and
+wrapping it would muddle what you're asking for.
 
 This is a prompt-injection mitigation, not a guarantee. See
 [SECURITY.md](../SECURITY.md) for the honest assessment of what it

@@ -105,7 +105,7 @@ system_prompt = "Translate the user's input to English. Output only the translat
 
 | Field | Type | Required | Purpose |
 |---|---|---|---|
-| `base_url` | string | yes | OpenAI-compatible endpoint root (must include `/v1` or equivalent) |
+| `base_url` | string | yes | OpenAI-compatible endpoint root |
 | `api_key` | string | yes | API key, stored literally |
 | `model` | string | yes | Model identifier passed verbatim to the provider |
 | `system_prompt` | string | no | Replaces the default system prompt for this profile |

@@ -14,7 +14,7 @@ stable across invocation modes, so a script piping `qq` through
 | `2` | **unknown** — model couldn't decide, or its first line didn't parse as yes/no/unknown | Decision mode only — never emitted in normal mode |
 | `10` | Runtime error | Network timeout, API 5xx, API 4xx (after sanitization), rate-limited after retry |
 | `11` | Usage / config error | Bad flags, conflicting flags, missing required field, no profile configured, bad TOML |
-| `130` | Interrupted | Ctrl-C (SIGINT) |
+| `130` | Interrupted | Ctrl-C (SIGINT), or SIGTERM |
 
 Decision-mode semantics are detailed in
 [decision-mode.md](decision-mode.md).
@@ -37,13 +37,13 @@ output.
 
 ## Timeouts, retries, cancellation
 
-- **Per-request timeout**: 120 seconds, enforced via
-  `context.WithTimeout`. Long enough for slow reasoning-capable
-  models; short enough that a hung provider doesn't wedge the CLI.
+- **Per-request timeout**: 120 seconds. Long enough for slow
+  reasoning-capable models; short enough that a hung provider
+  doesn't wedge the CLI.
 - **Retries**: handled by the SDK's default policy (429 / 5xx).
   No retry on timeout — the timeout already bounds total wall time.
-- **Cancellation**: SIGINT aborts the HTTP request, flushes
-  partial output, prints a newline to stderr, and exits `130`.
+- **Cancellation**: SIGINT or SIGTERM aborts the request, flushes
+  partial output, and exits `130`.
 
 ## Designing scripts around this
 

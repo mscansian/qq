@@ -42,27 +42,17 @@ See [exit-codes.md](exit-codes.md) for the universal table.
 ## How the decision is extracted
 
 The decision-mode system prompt asks the model to put exactly one
-word — `yes`, `no`, or `unknown` — on the first line, a blank line,
-then the prose explanation. `qq` parses the stream like this:
+word — `yes`, `no`, or `unknown` — on the first line, a blank
+line, then the prose. `qq` lowercases the first line and takes
+the first `[a-z]+` token, so `Yes,`, `YES!`, and
+`yes — because...` all parse as `yes`. Anything unrecognizable
+becomes `unknown` with a warning on stderr:
 
-1. Buffer deltas until the first `\n`. Nothing is printed to stdout
-   yet; the spinner stays visible.
-2. Lowercase the buffered line and extract the first `[a-z]+`
-   token. So `Yes,` → `yes`, `YES!` → `yes`,
-   `yes — because...` → `yes`.
-3. Match against `yes` / `no` / `unknown`. Anything else (including
-   an empty line) is treated as `unknown`, and a one-line warning
-   goes to stderr:
-   ```
-   qq: model didn't follow decision format, treating as unknown
-   ```
-4. Skip one blank separator line. If the model omits it, `qq`
-   tolerates the drift and streams anyway.
-5. Stream the remaining deltas to stdout.
+```
+qq: model didn't follow decision format, treating as unknown
+```
 
-If the stream ends before any newline arrives, the whole response is
-treated as the decision attempt and parsed the same way — likely
-producing `unknown`.
+The prose streams starting after the verdict line.
 
 ## When the model says `unknown`
 

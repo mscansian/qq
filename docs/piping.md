@@ -54,22 +54,15 @@ another tool still shows the spinner on your terminal.
 
 ## Control-byte filtering
 
-Every chunk streamed from the model passes through a byte filter
-before hitting stdout. C0 (`0x00`–`0x1F`) and C1 (`0x80`–`0x9F`)
-control bytes are stripped, with two exceptions legitimate in
-plain-text output: `\n` (`0x0A`) and `\t` (`0x09`).
+Streamed output is filtered to remove terminal control bytes —
+everything in the C0 range (`0x00`–`0x1F`) except `\n` and `\t`,
+plus DEL (`0x7F`) and stray C1 bytes (`0x80`–`0x9F`). The filter
+is UTF-8-aware, so valid multi-byte runes pass through intact.
 
-The reason is that model output is partially attacker-influenced
-through prompt injection in stdin. Without this filter, a crafted
-response could emit OSC sequences that set your terminal title,
-poison your clipboard (OSC 52 on emulators that honor it), or
-rewrite earlier scrollback lines via cursor addressing. The filter
-operates byte-by-byte on the UTF-8 stream and is safe for multi-byte
-sequences because all control bytes live in the ASCII range and
-never appear inside valid UTF-8 continuation bytes.
-
-DEL (`0x7F`), ESC, BEL, backspace, CR, and the full C1 range are
-dropped.
+This exists because model output can be steered by prompt
+injection in stdin. Without it, a crafted answer could emit
+escape sequences that set your terminal title, trigger OSC 52
+clipboard writes, or rewrite earlier scrollback lines.
 
 ## Large or binary stdin
 
