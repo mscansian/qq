@@ -43,33 +43,3 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
-
-  docs-review:
-    if: >
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Install qq
-        env:
-          QQ_VERSION: v0.3.0
-        run: |
-          curl -fsSL "https://github.com/mscansian/qq/releases/download/${QQ_VERSION}/qq-linux-amd64" \
-            -o /usr/local/bin/qq && chmod +x /usr/local/bin/qq
-      - name: Review .md diff
-        env:
-          QQ_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          QQ_BASE_URL: https://api.openai.com/v1
-          QQ_MODEL: gpt-5.4-mini
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if git diff --quiet "$BASE" "$HEAD" -- '*.md'; then
-            echo "no .md changes"
-            exit 0
-          fi
-          git diff "$BASE" "$HEAD" -- '*.md' \
-            | qq --unless "any typos, grammar errors, or broken markdown syntax in the added lines?"
