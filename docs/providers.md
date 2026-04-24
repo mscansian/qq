@@ -38,6 +38,20 @@ uses:
 - Internal gateways / proxies (e.g. a per-team LLM gateway).
 - Staging or regional endpoints for a known provider.
 
+## Bedrock, Vertex, Azure OpenAI
+
+These providers don't speak OpenAI-compat directly — Bedrock uses
+SigV4, Vertex uses Google auth, Azure OpenAI differs in path shape
+and headers. Run a translation proxy locally or in your infra and
+point `qq` at it via the `Custom` provider:
+
+- [LiteLLM](https://github.com/BerriAI/litellm) fronts Bedrock,
+  Vertex, Azure, and many other providers with an OpenAI-compatible
+  API. It reads `~/.aws/credentials`, Google ADC, etc. on its side,
+  so `qq` only sees the proxy URL.
+- AWS ships a Bedrock Access Gateway sample that does the same thing
+  Bedrock-only.
+
 ## Security
 
 A hostile `base_url` walks your API key out the door on the first
