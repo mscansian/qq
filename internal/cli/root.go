@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -45,8 +46,24 @@ type rootFlags struct {
 	stats       bool
 }
 
-// Version is set via -ldflags at build time.
+// Version is set via -ldflags by goreleaser. When unset (e.g. `go install
+// ...@vX.Y.Z` or a local `go build`), resolveVersion falls back to the
+// module version embedded by the Go toolchain.
 var Version = "dev"
+
+func resolveVersion() string {
+	if Version != "dev" {
+		return Version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return Version
+	}
+	if v := info.Main.Version; v != "" && v != "(devel)" {
+		return v
+	}
+	return Version
+}
 
 // Execute is the entrypoint called from main. Returns the desired exit
 // code. It never panics on user-triggered errors.
@@ -62,7 +79,7 @@ func Execute() int {
 		Args:          cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if flags.showVersion {
-				fmt.Fprintln(cmd.OutOrStdout(), Version)
+				fmt.Fprintln(cmd.OutOrStdout(), resolveVersion())
 				return nil
 			}
 			if flags.configure {
