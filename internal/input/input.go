@@ -23,6 +23,10 @@ type Result struct {
 	// Question is the human-readable form recorded in history: argument if
 	// present, else stdin, without the wrapping tags.
 	Question string
+	// StdinContent is the raw stdin payload before any wrapping or escaping.
+	// Empty when stdin wasn't read. Decision mode echoes this to stdout on a
+	// gate-open verdict so `cmd | qq --unless "..." | next` stays composable.
+	StdinContent string
 	// Truncated is true if stdin hit the size cap.
 	Truncated bool
 	// Source explains where the content came from, for error messages.
@@ -111,11 +115,12 @@ func Resolve(opts Options) (*Result, error) {
 		escaped := escapeContent(payload, tag)
 		msg := fmt.Sprintf("%s\n\n<%s>\n%s\n</%s>", arg, tag, escaped, tag)
 		return &Result{
-			UserMessage: msg,
-			Question:    arg,
-			Truncated:   truncated,
-			Source:      "arg+stdin",
-			ContentTag:  tag,
+			UserMessage:  msg,
+			Question:     arg,
+			StdinContent: payload,
+			Truncated:    truncated,
+			Source:       "arg+stdin",
+			ContentTag:   tag,
 		}, nil
 
 	case hasArg:
@@ -131,10 +136,11 @@ func Resolve(opts Options) (*Result, error) {
 		// the payload IS the instruction, and wrapping would confuse the
 		// model about what we want.
 		return &Result{
-			UserMessage: payload,
-			Question:    payload,
-			Truncated:   truncated,
-			Source:      "stdin",
+			UserMessage:  payload,
+			Question:     payload,
+			StdinContent: payload,
+			Truncated:    truncated,
+			Source:       "stdin",
 		}, nil
 
 	default:

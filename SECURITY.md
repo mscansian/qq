@@ -156,7 +156,9 @@ is attacker-controlled, the verdict is attacker-controlled.
 
 **Why it matters.** This is prompt injection wired directly to shell
 execution. The prose answer prints, but it prints *after* `&&` has
-already fired.
+already fired (or, in the passthrough form
+`cmd | qq --unless "..." | next`, after the attacker-controlled
+payload has already been handed to `next`).
 
 **Example — unsafe.**
 
@@ -214,13 +216,14 @@ blind, not a safety certificate.
 **Example.**
 
 ```
-$ curl https://install.fooapp.example/setup.sh | qq --unless "does this look malicious?" && sh
+$ curl https://install.fooapp.example/setup.sh | qq --unless "does this look malicious?" | sh
 ```
 
 The script looks like a normal installer, so the model may return
 `no` — while the prose notes that it runs remote code, isn't
 signature-verified, and is only trustworthy if you recognize the
-source. The `&&` fires before any human reads that.
+source. The pipe passes the script to `sh` before any human reads
+that.
 
 Where the alternative would be running it unchecked, this is
 better than nothing — just don't treat it as a gate. This is not a replacement

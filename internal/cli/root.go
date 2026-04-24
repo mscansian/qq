@@ -179,6 +179,14 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	spin := startSpinner(stderr)
 	defer spin.stop()
 
+	// In decision mode, stdout is reserved for passing stdin through on a
+	// gate-open verdict, so the model's prose goes to stderr. In normal
+	// mode, the prose IS the output and goes to stdout as before.
+	modelOut := io.Writer(stdout)
+	if decisionMode {
+		modelOut = stderr
+	}
+
 	// Start the stream; the spinner clears on first write.
 	resp, runErr := client.Run(ctx, client.Request{
 		BaseURL:      resolved.BaseURL,
@@ -187,7 +195,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 		SystemPrompt: sysPrompt,
 		UserMessage:  in.UserMessage,
 		Decision:     decisionMode,
-	}, newFirstWriteTap(stdout, spin.clear), stderr)
+	}, newFirstWriteTap(modelOut, spin.clear), stderr)
 
 	spin.stop()
 
@@ -225,7 +233,19 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	if !decisionMode {
 		return nil
 	}
-	return decisionExitError(resp.Decision, flags.ifMode)
+
+	exitErr := decisionExitError(resp.Decision, flags.ifMode)
+	// Gate open (exit 0) → pass stdin through so `cmd | qq --unless "..." |
+	// next` works like a `grep`-style filter. On no/unknown, stdout stays
+	// empty; the verdict is carried by the exit code. When stdin was
+	// truncated, the passthrough carries the truncated prefix — the
+	// warning was already printed on stderr upstream.
+	if exitErr == nil && in.StdinContent != "" {
+		if _, err := io.WriteString(stdout, in.StdinContent); err != nil {
+			return runtimeErrorf("write passthrough: %s", err)
+		}
+	}
+	return exitErr
 }
 
 func maxOrDefault(n int) int {

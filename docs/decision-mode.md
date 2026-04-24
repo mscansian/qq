@@ -13,15 +13,48 @@ $ qq --if "is this log showing a real error?" < app.log && page_oncall
 $ git diff main | qq --unless "any debug prints or leftover console.logs?" && gh pr create
 ```
 
-The prose answer still prints — you see *why* the model decided:
+## Stdin passthrough
+
+In decision mode, `qq` behaves like a `grep`-style filter on stdin:
+
+- On a gate-open verdict (exit 0), the original stdin is written
+  verbatim to stdout.
+- On any other verdict (`no`/`yes` depending on mode, or `unknown`),
+  stdout stays empty. The exit code carries the answer.
+- The model's prose goes to **stderr** so stdout stays reserved for
+  passthrough.
+
+This makes `qq` chainable with the next stage of a pipeline:
 
 ```
-$ qq --if "is the build likely flaky?" < test.log
+# only hand the script to sh if the model doesn't flag it
+$ curl -fsSL https://install.example/setup.sh \
+    | qq --unless "does this look malicious?" \
+    | sh
+
+# only commit the diff if no debug prints sneaked in
+$ git diff --staged | qq --unless "any debug prints?" | git apply --cached
+```
+
+The prose answer prints to stderr — you see *why* the model decided
+even while stdout flows to the next command:
+
+```
+$ qq --if "is the build likely flaky?" < test.log 2>reason
+$ cat reason
 The failure is a timing-dependent race in the login test — the cookie
 isn't set by the time the second request fires. Yes, this reads as a
 flake, not a real regression.
 $ echo $?
 0
+```
+
+Arg-only decision mode (no stdin) still works — stdout just stays
+empty because there's nothing to pass through:
+
+```
+$ qq --if "is water wet?" && echo yes
+yes
 ```
 
 ## Exit codes
@@ -44,6 +77,8 @@ If the model's first line isn't a recognizable `yes` / `no` /
 ```
 qq: model didn't follow decision format, treating as unknown
 ```
+
+Stdout stays empty (unknown never opens the gate).
 
 ## When the model says `unknown`
 
@@ -99,13 +134,23 @@ Normal mode (no `--if`/`--unless`) keeps the provider's default
 temperature, so generation queries like `qq "a .gitignore for X"`
 stay re-rollable.
 
+## Truncation and passthrough
+
+If stdin exceeds `--max-input` and `input.on_overflow = truncate`
+(the default), the passthrough carries only the truncated prefix.
+The warning on stderr already signals this — but it means the
+downstream command sees a short read, not the full input. If that
+matters, either raise `--max-input` or set
+`input.on_overflow = error` so `qq` exits before running the model.
+
 ## Safety: do not use on untrusted input
 
 When the content reaching the model is attacker-influenced — a log
 from an external source, a PR diff from a contributor, a `curl`
 against a third-party URL — the attacker can embed instructions
-that coerce the verdict on line 1. The prose prints afterward, but
-by then `&& action` has already fired.
+that coerce the verdict on line 1. The downstream command in the
+pipe then sees the original payload exactly as if the gate had
+legitimately opened.
 
 Use decision mode only on input you trust. For gating on untrusted
 content, use a deterministic classifier. The full write-up is in
