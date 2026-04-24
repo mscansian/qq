@@ -102,4 +102,3 @@ func StateDir() (string, error) {
 	}
 	return filepath.Join(home, ".local", "state", "qq"), nil
 }
-
