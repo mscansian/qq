@@ -28,7 +28,7 @@ Then your normal answer, following all the style guidance above — short, no pr
 
 The one-word-first-line rule applies only to line 1. After the blank line, the style guidance above is the only rule.
 
-Choose ` + "`unknown`" + ` when the question genuinely can't be answered as yes/no, or when the provided input doesn't contain enough information to decide. Do not invent a decision when the evidence doesn't support one.`
+When the evidence leans one way, commit to ` + "`yes`" + ` or ` + "`no`" + ` even if you aren't fully certain. Reserve ` + "`unknown`" + ` for when the input itself doesn't contain enough information to decide. When the verdict commits despite real uncertainty, the prose must reflect it — name what's unresolved or what assumption the answer rests on. The verdict is one bit; the prose is where nuance lives.`
 
 // ComposeSystemPrompt returns the system prompt to send. base is the
 // profile's override (empty string → use DefaultSystemPrompt). contentTag,

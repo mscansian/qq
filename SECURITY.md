@@ -73,7 +73,7 @@ fixed by the wrapper — they're properties of the workflow.
 
 ## General rules
 
-Three rules cover most of what follows:
+Four rules cover most of what follows:
 
 1. **Treat stdin like untrusted input.** Anything that reaches an
    LLM's context can steer its output. If you wouldn't `eval` it in a
@@ -82,7 +82,10 @@ Three rules cover most of what follows:
    input.** If `qq`'s answer directly triggers a deploy, a merge, a
    page, or a `rm`, and any part of the input came from outside your
    control, you have a problem.
-3. **Assume everything you pipe in is seen by the provider, logged on
+3. **A verdict is a lean, not a proof.** `--if`/`--unless` compress
+   the model's judgment into one bit; a confident `no` and a 55/45
+   `no` look identical to the shell.
+4. **Assume everything you pipe in is seen by the provider, logged on
    your disk, and possibly read by a human.** Use `--incognito` for
    anything sensitive.
 
@@ -186,7 +189,57 @@ If you need a gate on untrusted content, use a deterministic
 classifier. LLM verdicts are not a substitute for signed artefacts,
 allowlists, policy engines, or human review.
 
-### 3. History captures sensitive data by default
+### 3. The verdict is a lossy summary of the model's judgment
+
+**What.** `--if` / `--unless` compress the model's answer into one
+bit — `yes`, `no`, or `unknown` — exposed as the exit code. A
+confident `no` and a hedged-but-leaning `no` produce the same exit
+code. The prose carries the nuance; `&& action` doesn't read the
+prose.
+
+**Why it matters.** The exit code is the model's best guess,
+committed to one side. It is not an attestation. For safety-flavored
+questions ("does this look malicious?", "any secrets in this diff?",
+"is this change risky?") a 95%-confident `no` and a 55%-confident
+`no` look identical to the shell, but are very different in what
+they justify doing next.
+
+**Why this way?** The alternative is to bail to `unknown` on any
+hedge, which blocks `&& action` at exit 2. That's safer, but made
+decision mode useless in practice — most real questions carry some
+ambiguity, and a tool that escalates on anything non-trivial
+doesn't compose. Committing to a lean is the deliberate trade: the
+shell gets the model's best guess on one side. Better than running
+blind, not a safety certificate.
+
+**Example.**
+
+```
+$ curl https://install.fooapp.example/setup.sh | qq --unless "does this look malicious?" && sh
+```
+
+The script looks like a normal installer, so the model may return
+`no` — while the prose notes that it runs remote code, isn't
+signature-verified, and is only trustworthy if you recognize the
+source. The `&&` fires before any human reads that.
+
+Where the alternative would be running it unchecked, this is
+better than nothing — just don't treat it as a gate. This is not a replacement
+for human oversight.
+
+**What you should assume.**
+
+- The verdict is a hint, not a proof. Read the prose before acting,
+  especially on safety-flavored questions.
+- The model is instructed to commit when evidence leans, and to keep
+  the nuance in the prose. It is *not* instructed (and cannot be
+  reliably instructed) to bail to `unknown` whenever confidence is
+  low.
+- For gates that must be correct, use a deterministic classifier,
+  signed artefacts, an allowlist, or human review. LLM verdicts are
+  not a substitute.
+
+### 4. History captures sensitive data by default
 
 **What.** Every non-incognito invocation appends the question and
 the answer to `qq`'s history file in your user state directory.
@@ -220,7 +273,7 @@ possibly echoing the key) now sit in the history file.
   using `qq` for a while — treat it like any other plaintext log of
   your activity.
 
-### 4. Everything you send reaches a third-party provider
+### 5. Everything you send reaches a third-party provider
 
 **What.** `qq` makes HTTPS requests to whatever `base_url` is
 configured for the active profile. The question, the stdin content,
@@ -249,7 +302,7 @@ that material was sent off-box.
 - Use separate profiles with separate API keys for different
   sensitivity classes, so revocation and accounting stay per-context.
 
-### 5. API keys are stored in plaintext on disk
+### 6. API keys are stored in plaintext on disk
 
 **What.** API keys are stored literally in `qq`'s credentials file,
 which lives in your user config directory with the strictest
@@ -271,7 +324,7 @@ on a poorly-permissioned shared host — can exfiltrate the keys.
 - Rotate keys promptly if a laptop is lost, a backup leaks, or the
   file ends up somewhere it shouldn't.
 
-### 6. Untrusted `base_url` values are a credential-theft vector
+### 7. Untrusted `base_url` values are a credential-theft vector
 
 **What.** `base_url` is accepted verbatim from config or from
 `QQ_BASE_URL`. If you paste a config snippet from an untrusted source
@@ -296,7 +349,7 @@ host.
   `base_url` before running `qq` with that profile — the same way
   you'd inspect a shell one-liner before pasting it.
 
-### 7. Shared hosts
+### 8. Shared hosts
 
 **What.** `qq` is designed for a single-user workstation. Running it
 on a host where other humans have shell access (jump boxes, shared

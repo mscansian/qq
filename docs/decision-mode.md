@@ -72,6 +72,20 @@ conflict — use a separate profile for decision-mode work.
 `--if` and `--unless` are mutually exclusive. Passing both exits
 `11`.
 
+## The verdict is a lean, not an attestation
+
+The model is instructed to commit to `yes` or `no` when the
+evidence leans that way, even when it isn't fully certain. Any
+remaining uncertainty lives in the prose. That makes the exit code
+useful for composition (`&& action`) but also makes it a lossy
+summary — a confident verdict and a leaning one look the same to
+the shell.
+
+For safety-flavored questions ("does this look malicious?", "any
+secrets in this diff?") read the prose before acting. For gates that
+actually need to be correct, use a deterministic classifier. The
+full write-up is in [SECURITY.md](../SECURITY.md#3-the-verdict-is-a-lossy-summary-of-the-models-judgment).
+
 ## Safety: do not use on untrusted input
 
 When the content reaching the model is attacker-influenced — a log
