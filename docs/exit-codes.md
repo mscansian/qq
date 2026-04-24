@@ -8,7 +8,7 @@ never emitted in normal mode — tool errors skip straight to `10+`.
 | `0` | Success (normal) / **yes** (`--if`) / **no** (`--unless`) | Happy path |
 | `1` | **no** (`--if`) / **yes** (`--unless`) | Decision mode only — never emitted in normal mode |
 | `2` | **unknown** — model couldn't decide, or its first line didn't parse as yes/no/unknown | Decision mode only — never emitted in normal mode |
-| `10` | Runtime error | Network timeout, API 5xx, API 4xx (after sanitization), rate-limited after retry |
+| `10` | Runtime error | Network timeout, API 5xx, API 4xx, rate-limited after retry |
 | `11` | Usage / config error | Bad flags, conflicting flags, missing required field, no profile configured, bad TOML |
 | `130` | Interrupted | Ctrl-C (SIGINT), or SIGTERM |
 

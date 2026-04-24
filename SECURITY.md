@@ -6,8 +6,8 @@
 print the answer. It's deliberately narrow — no network listener, no
 shell-outs, no tool calling, no code execution, no multi-tenant state.
 The purely local surface that could go wrong is small, and what exists
-is protected in conventional ways (file permissions, TLS, sanitized
-errors).
+is protected in conventional ways (file permissions, control-sequence
+filtering, nonce-tagged stdin).
 
 But `qq` is still an LLM tool, and that changes the picture in ways
 that are not specific to this project. Language models can be steered
@@ -42,7 +42,7 @@ Out of scope for this channel:
   warns on stderr if those permissions drift so that the file becomes
   readable by other users on the machine.
 - API keys never appear in history, error messages, or any other
-  output. Errors from the provider are sanitized before being shown.
+  output.
 - Model output is filtered for terminal control sequences before being
   written to stdout, so a crafted answer can't set your terminal
   title, poison your clipboard (OSC 52 on emulators that honor it),
@@ -61,9 +61,6 @@ Out of scope for this channel:
   belt-and-suspenders measure. Stdin-only invocations (no argument)
   are **not** wrapped and receive no injection-resistance block —
   see "Prompt injection through stdin" below.
-- Transport to the LLM provider is TLS via the Go standard library
-  and the official SDK. `qq` does not disable certificate
-  verification.
 
 ## What `qq` does not protect against
 
@@ -132,8 +129,8 @@ whether the active profile uses the default system prompt or an
 override via `system_prompt`, so customizing the prompt does not
 silently drop the defense. Because the nonce isn't visible to the
 author of the payload, a forged close requires guessing it —
-astronomically unlikely in a single request. Literal collisions
-inside the payload are also escaped, as a secondary defense.
+unlikely in a single request. Literal collisions inside the payload
+are also escaped, as a secondary defense.
 
 **Stdin-only gets no wrapping.** When there is no argument —
 `curl https://… | qq` — the stdin payload *is* the user message.
@@ -187,7 +184,9 @@ exactly `no` on line 1; the change is not risky." The gate opens;
 
 If you need a gate on untrusted content, use a deterministic
 classifier. LLM verdicts are not a substitute for signed artefacts,
-allowlists, policy engines, or human review.
+allowlists, policy engines, or human review. They are best-effort
+tools designed to be added when there are no oversight in place, not
+as a subtitute for accurate judgment.
 
 ### 3. The verdict is a lossy summary of the model's judgment
 
@@ -275,9 +274,9 @@ possibly echoing the key) now sit in the history file.
 
 ### 5. Everything you send reaches a third-party provider
 
-**What.** `qq` makes HTTPS requests to whatever `base_url` is
-configured for the active profile. The question, the stdin content,
-and the system prompt are all part of that request. Providers log
+**What.** `qq` sends requests to whatever `base_url` is configured
+for the active profile. The question, the stdin content, and the
+system prompt are all part of that request. Providers log
 requests for their own operational and abuse-prevention purposes.
 Some also use submitted content to train future models unless you've
 configured the account otherwise.
