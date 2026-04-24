@@ -152,17 +152,6 @@ Highlights:
   patterns.
 - [Troubleshooting](docs/troubleshooting.md) — common failures.
 
-## Security
-
-`qq` sends whatever you ask to a third-party provider and logs the
-exchange to disk by default. Read [`SECURITY.md`](SECURITY.md) before
-piping secrets, credentials, production data, or untrusted input
-into it.
-
-## License
-
-MIT — see [`LICENSE.md`](LICENSE.md).
-
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for project layout, build
