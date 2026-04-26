@@ -94,6 +94,15 @@ Gate alerting on log content.
 tail -n 200 app.log | qq --if "real error (stack trace, crash, unrecoverable)?" >/dev/null && page_oncall
 ```
 
+### Confirm a generated command before running it
+
+`-i` shows the response on the terminal and waits for Enter before
+piping. Catches the 1-in-10 case where the model gets it wrong.
+
+```
+ls | qq -i "ffmpeg command to extract a frame every 10s into frames/" | sh
+```
+
 ### Sanity-gate a `curl | sh`
 
 Let qq pass the install script through only if nothing looks off.

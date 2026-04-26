@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -39,6 +41,7 @@ type rootFlags struct {
 	model       string
 	ifMode      bool
 	unlessMode  bool
+	interactive bool
 	incognito   bool
 	maxInput    int64
 	configure   bool
@@ -93,6 +96,7 @@ func Execute() int {
 	cmd.Flags().StringVarP(&flags.model, "model", "m", "", "override model for this invocation")
 	cmd.Flags().BoolVar(&flags.ifMode, "if", false, "decision mode: exit 0 on yes, 1 on no, 2 on unknown")
 	cmd.Flags().BoolVar(&flags.unlessMode, "unless", false, "inverted decision mode: exit 0 on no, 1 on yes, 2 on unknown")
+	cmd.Flags().BoolVarP(&flags.interactive, "interactive", "i", false, "preview response on /dev/tty and confirm before writing to stdout")
 	cmd.Flags().BoolVar(&flags.incognito, "incognito", false, "skip history for this invocation")
 	cmd.Flags().Int64Var(&flags.maxInput, "max-input", 0, "cap stdin bytes (default 200KiB)")
 	cmd.Flags().BoolVar(&flags.configure, "configure", false, "interactive setup (adds/edits profiles)")
@@ -132,6 +136,12 @@ func runtimeErrorf(format string, a ...any) error {
 func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if flags.ifMode && flags.unlessMode {
 		return usageErrorf("--if and --unless are mutually exclusive")
+	}
+	if flags.interactive && (flags.ifMode || flags.unlessMode) {
+		return usageErrorf("--interactive cannot be combined with --if/--unless")
+	}
+	if flags.interactive && term.IsTerminal(int(os.Stdout.Fd())) {
+		return usageErrorf("--interactive requires stdout to be piped or redirected")
 	}
 
 	// Load config first so we can fail fast on bad TOML.
@@ -200,13 +210,47 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 
 	// In decision mode, stdout is reserved for passing stdin through on a
 	// gate-open verdict, so the model's prose goes to stderr. In normal
-	// mode, the prose IS the output and goes to stdout as before.
+	// mode, the prose IS the output and goes to stdout as before. In
+	// interactive mode, the response streams live to /dev/tty for the
+	// human to read, and is buffered for stdout — only flushed there if
+	// they accept the prompt.
 	modelOut := io.Writer(stdout)
+	var pipeBuf bytes.Buffer
+	var ttyFile *os.File
+	var ttyReader *bufio.Reader
+	onFirstWrite := spin.clear
 	if decisionMode {
 		modelOut = stderr
+	} else if flags.interactive {
+		f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+		if err != nil {
+			return usageErrorf("--interactive requires /dev/tty: %s", err)
+		}
+		defer f.Close()
+		// Switch to the alt screen only when the first byte arrives, so
+		// the spinner runs on the normal screen and the user sees a
+		// status before the modal preview appears. The flag tracks
+		// whether we entered, so the deferred restore is a no-op on an
+		// early return (e.g. an HTTP error before any content).
+		var altEntered bool
+		defer func() {
+			if altEntered {
+				fmt.Fprint(f, "\x1b[?1049l")
+			}
+		}()
+		ttyFile = f
+		ttyReader = bufio.NewReader(f)
+		modelOut = io.MultiWriter(ttyFile, &pipeBuf)
+		onFirstWrite = func() {
+			spin.clear()
+			fmt.Fprint(f, "\x1b[?1049h\x1b[H")
+			altEntered = true
+		}
 	}
 
-	// Start the stream; the spinner clears on first write.
+	// Start the stream; onFirstWrite fires on the first content byte —
+	// clears the spinner, and (in interactive mode) switches to the alt
+	// screen so the preview is modal.
 	start := time.Now()
 	resp, runErr := client.Run(ctx, client.Request{
 		BaseURL:      resolved.BaseURL,
@@ -215,7 +259,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 		SystemPrompt: sysPrompt,
 		UserMessage:  in.UserMessage,
 		Decision:     decisionMode,
-	}, newFirstWriteTap(modelOut, spin.clear), stderr)
+	}, newFirstWriteTap(modelOut, onFirstWrite), stderr)
 	elapsed := time.Since(start)
 
 	spin.stop()
@@ -256,6 +300,9 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	}
 
 	if !decisionMode {
+		if flags.interactive {
+			return confirmAndPipe(ttyFile, ttyReader, &pipeBuf, stdout)
+		}
 		return nil
 	}
 
@@ -271,6 +318,28 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 		}
 	}
 	return exitErr
+}
+
+// confirmAndPipe prompts the user on /dev/tty and, on accept, flushes the
+// buffered response to stdout. Default is no — only an explicit "y"/"yes"
+// (any case) accepts; anything else, including empty input, aborts. On
+// abort the buffered response is dropped and the caller exits 130 — same
+// class as Ctrl-C, since the user explicitly stopped the pipeline.
+func confirmAndPipe(tty io.Writer, reader *bufio.Reader, buf *bytes.Buffer, stdout io.Writer) error {
+	fmt.Fprint(tty, "\nPipe to next command? [y/N] ")
+	line, err := reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return runtimeErrorf("read confirmation: %s", err)
+	}
+	answer := strings.ToLower(strings.TrimSpace(line))
+	accepted := answer == "y" || answer == "yes"
+	if !accepted {
+		return &cliError{code: exitSigint, err: errors.New("aborted")}
+	}
+	if _, err := io.Copy(stdout, buf); err != nil {
+		return runtimeErrorf("write piped output: %s", err)
+	}
+	return nil
 }
 
 func maxOrDefault(n int) int {

@@ -10,7 +10,7 @@ never emitted in normal mode — tool errors skip straight to `10+`.
 | `2` | **unknown** — model couldn't decide, or its first line didn't parse as yes/no/unknown | Decision mode only — never emitted in normal mode |
 | `10` | Runtime error | Network timeout, API 5xx, API 4xx, rate-limited after retry |
 | `11` | Usage / config error | Bad flags, conflicting flags, missing required field, no profile configured, bad TOML |
-| `130` | Interrupted | Ctrl-C (SIGINT), or SIGTERM |
+| `130` | Interrupted | Ctrl-C (SIGINT), SIGTERM, or `--interactive` declined at the prompt |
 
 Decision-mode semantics are detailed in
 [decision-mode.md](decision-mode.md).

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -277,6 +278,33 @@ func TestFormatStats(t *testing.T) {
 			got := formatStats(&tc.resp, tc.model, 1230*time.Millisecond)
 			if got != tc.want {
 				t.Fatalf("mismatch\n got: %q\nwant: %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRunAskInteractiveRejectsDecisionMode locks the contract that
+// --interactive cannot be combined with --if/--unless. The two features
+// have incompatible stdout semantics — decision mode reserves stdout for
+// passthrough, interactive reserves it for confirmed prose.
+func TestRunAskInteractiveRejectsDecisionMode(t *testing.T) {
+	cases := map[string]rootFlags{
+		"--interactive + --if":     {interactive: true, ifMode: true},
+		"--interactive + --unless": {interactive: true, unlessMode: true},
+	}
+	for name, flags := range cases {
+		t.Run(name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := runAsk(context.Background(), &flags, []string{"x"}, strings.NewReader(""), &stdout, &stderr)
+			if err == nil {
+				t.Fatalf("expected usage error, got nil")
+			}
+			var ce *cliError
+			if !errors.As(err, &ce) || ce.code != exitUsage {
+				t.Fatalf("expected exit code %d, got %v", exitUsage, err)
+			}
+			if !strings.Contains(err.Error(), "interactive") {
+				t.Fatalf("expected error to mention interactive, got: %v", err)
 			}
 		})
 	}
