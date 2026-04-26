@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -23,6 +24,11 @@ type Input struct {
 	OnOverflow string `toml:"on_overflow,omitempty"` // "error" (default) or "truncate"
 }
 
+// Request settings (non-secret).
+type Request struct {
+	Timeout string `toml:"timeout,omitempty"` // Go duration string; "" → default
+}
+
 // OnOverflow values.
 const (
 	OnOverflowTruncate = "truncate"
@@ -33,10 +39,12 @@ const (
 type Config struct {
 	History History `toml:"history"`
 	Input   Input   `toml:"input"`
+	Request Request `toml:"request"`
 }
 
 const (
-	defaultMaxHistory = 1000
+	defaultMaxHistory     = 1000
+	defaultRequestTimeout = 120 * time.Second
 )
 
 // HistoryEnabled honors the default (true) when unset.
@@ -74,6 +82,20 @@ func (c *Config) InputOnOverflow() string {
 		return OnOverflowError
 	}
 	return c.Input.OnOverflow
+}
+
+// RequestTimeout returns the configured per-request timeout, defaulting to
+// 120s when unset. LoadConfig validates the duration string, so by the
+// time we get here ParseDuration cannot fail.
+func (c *Config) RequestTimeout() time.Duration {
+	if c.Request.Timeout == "" {
+		return defaultRequestTimeout
+	}
+	d, err := time.ParseDuration(c.Request.Timeout)
+	if err != nil {
+		panic(fmt.Sprintf("config: request.timeout %q reached RequestTimeout unvalidated: %v", c.Request.Timeout, err))
+	}
+	return d
 }
 
 // ConfigPath returns the path to config.toml under $XDG_CONFIG_HOME
@@ -115,6 +137,15 @@ func LoadConfig() (*Config, error) {
 			"parse %s: input.on_overflow must be %q or %q, got %q",
 			path, OnOverflowTruncate, OnOverflowError, c.Input.OnOverflow,
 		)
+	}
+	if c.Request.Timeout != "" {
+		d, err := time.ParseDuration(c.Request.Timeout)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: request.timeout %q is not a Go duration; use e.g. \"45s\" or \"3m\"", path, c.Request.Timeout)
+		}
+		if d <= 0 {
+			return nil, fmt.Errorf("parse %s: request.timeout must be positive, got %q", path, c.Request.Timeout)
+		}
 	}
 	return &c, nil
 }

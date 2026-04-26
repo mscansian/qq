@@ -26,13 +26,12 @@ import (
 
 // Exit codes — universal, per ENGINEERING.md §Error handling.
 const (
-	exitOK       = 0
-	exitNo       = 1  // decision mode only
-	exitUnknown  = 2  // decision mode only
-	exitRuntime  = 10 // network, API
-	exitUsage    = 11 // bad flags, bad config
-	exitSigint   = 130
-	requestTimeo = 120 * time.Second
+	exitOK      = 0
+	exitNo      = 1  // decision mode only
+	exitUnknown = 2  // decision mode only
+	exitRuntime = 10 // network, API
+	exitUsage   = 11 // bad flags, bad config
+	exitSigint  = 130
 )
 
 // rootFlags carries the parsed CLI flag values.
@@ -44,6 +43,7 @@ type rootFlags struct {
 	interactive bool
 	incognito   bool
 	maxInput    int64
+	timeout     time.Duration
 	configure   bool
 	showVersion bool
 	stats       bool
@@ -99,6 +99,7 @@ func Execute() int {
 	cmd.Flags().BoolVarP(&flags.interactive, "interactive", "i", false, "preview response on /dev/tty and confirm before writing to stdout")
 	cmd.Flags().BoolVar(&flags.incognito, "incognito", false, "skip history for this invocation")
 	cmd.Flags().Int64Var(&flags.maxInput, "max-input", 0, "cap stdin bytes (default 200KiB)")
+	cmd.Flags().DurationVar(&flags.timeout, "timeout", 0, "per-request timeout (default 120s, overrides profile and config)")
 	cmd.Flags().BoolVar(&flags.configure, "configure", false, "interactive setup (adds/edits profiles)")
 	cmd.Flags().BoolVar(&flags.showVersion, "version", false, "print version and exit")
 	cmd.Flags().BoolVar(&flags.stats, "stats", false, "print token usage and timing to stderr after the response")
@@ -142,6 +143,9 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	}
 	if flags.interactive && term.IsTerminal(int(os.Stdout.Fd())) {
 		return usageErrorf("--interactive requires stdout to be piped or redirected")
+	}
+	if flags.timeout < 0 {
+		return usageErrorf("--timeout must be positive, got %s", flags.timeout)
 	}
 
 	// Load config first so we can fail fast on bad TOML.
@@ -202,7 +206,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 	decisionMode := flags.ifMode || flags.unlessMode
 	sysPrompt := client.ComposeSystemPrompt(resolved.SystemPrompt, in.ContentTag, decisionMode)
 
-	ctx, cancel := context.WithTimeout(parent, requestTimeo)
+	ctx, cancel := context.WithTimeout(parent, resolveTimeout(flags.timeout, resolved.Timeout, cfg))
 	defer cancel()
 
 	spin := startSpinner(stderr)
@@ -347,6 +351,19 @@ func maxOrDefault(n int) int {
 		return input.DefaultMaxInput
 	}
 	return n
+}
+
+// resolveTimeout picks the per-request timeout: --timeout flag, then the
+// profile's `timeout`, then config.toml's `request.timeout`, then the
+// built-in default. Each layer is skipped when its value is zero/unset.
+func resolveTimeout(flag, profile time.Duration, cfg *config.Config) time.Duration {
+	if flag > 0 {
+		return flag
+	}
+	if profile > 0 {
+		return profile
+	}
+	return cfg.RequestTimeout()
 }
 
 // decisionExitError maps a verdict + mode to the right exit code.

@@ -103,10 +103,13 @@ To stop the warnings entirely, set `history.enabled = false` in
 
 ## The request hangs / times out
 
-Per-request timeout is 120 seconds. A hung provider surfaces as a
-runtime error (exit `10`) after that point. Check network
-connectivity and the provider's status page. SDK retries happen
-automatically on 429 / 5xx but not on timeout.
+Per-request timeout is 120 seconds by default. A hung provider
+surfaces as a runtime error (exit `10`) after that point. Check
+network connectivity and the provider's status page. SDK retries
+happen automatically on 429 / 5xx but not on timeout.
+
+Raise it for slow models with `--timeout 5m`, or set a per-profile
+or global default — see [config.md](config.md#fields).
 
 Interrupt manually with Ctrl-C — `qq` flushes partial output and
 exits `130`.

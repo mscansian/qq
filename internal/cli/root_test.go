@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mscansian/qq/internal/client"
+	"github.com/mscansian/qq/internal/config"
 )
 
 // TestRunAskDecisionPassthrough wires runAsk end-to-end against a fake SSE
@@ -322,4 +323,31 @@ func setTestEnv(t *testing.T, baseURL string) func() {
 	t.Setenv("QQ_MODEL", "test-model")
 	t.Setenv("QQ_PROFILE", "")
 	return func() {}
+}
+
+func TestResolveTimeout(t *testing.T) {
+	cases := map[string]struct {
+		flag    time.Duration
+		profile time.Duration
+		cfg     string // request.timeout in config
+		want    time.Duration
+	}{
+		"all unset → built-in default": {want: 120 * time.Second},
+		"config only":                  {cfg: "30s", want: 30 * time.Second},
+		"profile beats config":         {profile: 45 * time.Second, cfg: "30s", want: 45 * time.Second},
+		"flag beats profile":           {flag: 10 * time.Second, profile: 45 * time.Second, want: 10 * time.Second},
+		"flag beats config":            {flag: 10 * time.Second, cfg: "30s", want: 10 * time.Second},
+		"flag beats both":              {flag: 10 * time.Second, profile: 45 * time.Second, cfg: "30s", want: 10 * time.Second},
+		"profile only":                 {profile: 45 * time.Second, want: 45 * time.Second},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			cfg := &config.Config{Request: config.Request{Timeout: tc.cfg}}
+			got := resolveTimeout(tc.flag, tc.profile, cfg)
+			if got != tc.want {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

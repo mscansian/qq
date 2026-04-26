@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // Resolved is the fully-resolved runtime config for a single invocation.
@@ -11,8 +12,9 @@ type Resolved struct {
 	BaseURL      string
 	APIKey       string
 	Model        string
-	SystemPrompt string // empty means "use the baked-in default"
-	Incognito    bool   // from profile.incognito
+	SystemPrompt string        // empty means "use the baked-in default"
+	Incognito    bool          // from profile.incognito
+	Timeout      time.Duration // zero means "fall through to config.toml then default"
 }
 
 // Overrides are the command-line flags / env vars that override profile
@@ -69,6 +71,16 @@ func Resolve(creds *Credentials, ov Overrides) (*Resolved, error) {
 	if havePro {
 		res.SystemPrompt = prof.SystemPrompt
 		res.Incognito = prof.Incognito
+		if prof.Timeout != "" {
+			d, err := time.ParseDuration(prof.Timeout)
+			if err != nil {
+				return nil, fmt.Errorf("profile %q: timeout %q is not a Go duration; use e.g. \"45s\" or \"3m\"", res.ProfileName, prof.Timeout)
+			}
+			if d <= 0 {
+				return nil, fmt.Errorf("profile %q: timeout must be positive, got %q", res.ProfileName, prof.Timeout)
+			}
+			res.Timeout = d
+		}
 	}
 
 	// Validate required fields.

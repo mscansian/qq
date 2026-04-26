@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestResolve(t *testing.T) {
@@ -127,6 +128,45 @@ func TestResolve(t *testing.T) {
 			if got.APIKey != tc.wantKey || got.BaseURL != tc.wantURL || got.Model != tc.wantModel || got.ProfileName != tc.wantName {
 				t.Fatalf("got %+v, want key=%s url=%s model=%s name=%s",
 					got, tc.wantKey, tc.wantURL, tc.wantModel, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestResolveProfileTimeout(t *testing.T) {
+	t.Setenv("QQ_API_KEY", "")
+	t.Setenv("QQ_BASE_URL", "")
+	t.Setenv("QQ_MODEL", "")
+	t.Setenv("QQ_PROFILE", "")
+
+	cases := map[string]struct {
+		timeout string
+		want    time.Duration
+		wantErr string
+	}{
+		"unset → zero (caller falls through)": {timeout: "", want: 0},
+		"valid duration parsed":               {timeout: "45s", want: 45 * time.Second},
+		"invalid duration errors":             {timeout: "nope", wantErr: "not a Go duration"},
+		"non-positive errors":                 {timeout: "0s", wantErr: "must be positive"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			creds := &Credentials{Profiles: map[string]Profile{
+				"default": {BaseURL: "https://api/", APIKey: "k", Model: "m", Timeout: tc.timeout},
+			}}
+			got, err := Resolve(creds, Overrides{})
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("want error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.Timeout != tc.want {
+				t.Fatalf("got %v, want %v", got.Timeout, tc.want)
 			}
 		})
 	}

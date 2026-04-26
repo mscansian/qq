@@ -91,6 +91,7 @@ system_prompt = "Translate the user's input to English. Output only the translat
 | `model` | string | yes | Model identifier |
 | `system_prompt` | string | no | Replaces the default system prompt for this profile |
 | `incognito` | bool | no | When `true`, invocations using this profile skip history |
+| `timeout` | string | no | Per-request timeout (Go duration, e.g. `"45s"`, `"3m"`). Overrides `request.timeout` in [config.md](config.md); overridden by `--timeout`. |
 
 Unknown fields are rejected.
 

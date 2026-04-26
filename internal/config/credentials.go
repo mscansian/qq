@@ -18,6 +18,7 @@ type Profile struct {
 	Model        string `toml:"model"`
 	SystemPrompt string `toml:"system_prompt,omitempty"`
 	Incognito    bool   `toml:"incognito,omitempty"`
+	Timeout      string `toml:"timeout,omitempty"` // Go duration string; "" → fall through to config.toml
 }
 
 // Credentials is the parsed credentials.toml — a map of profile name → Profile.
