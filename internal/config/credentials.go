@@ -18,7 +18,9 @@ type Profile struct {
 	Model        string `toml:"model"`
 	SystemPrompt string `toml:"system_prompt,omitempty"`
 	Incognito    bool   `toml:"incognito,omitempty"`
-	Timeout      string `toml:"timeout,omitempty"` // Go duration string; "" → fall through to config.toml
+	Timeout      string `toml:"timeout,omitempty"`     // Go duration string; "" → fall through to config.toml
+	MaxBytes     int    `toml:"max_bytes,omitempty"`   // 0 → fall through to config.toml
+	OnOverflow   string `toml:"on_overflow,omitempty"` // "error" or "truncate"; "" → fall through to config.toml
 }
 
 // Credentials is the parsed credentials.toml — a map of profile name → Profile.

@@ -15,6 +15,8 @@ type Resolved struct {
 	SystemPrompt string        // empty means "use the baked-in default"
 	Incognito    bool          // from profile.incognito
 	Timeout      time.Duration // zero means "fall through to config.toml then default"
+	MaxBytes     int           // zero means "fall through to config.toml then default"
+	OnOverflow   string        // empty means "fall through to config.toml then default"
 }
 
 // Overrides are the command-line flags / env vars that override profile
@@ -80,6 +82,16 @@ func Resolve(creds *Credentials, ov Overrides) (*Resolved, error) {
 				return nil, fmt.Errorf("profile %q: timeout must be positive, got %q", res.ProfileName, prof.Timeout)
 			}
 			res.Timeout = d
+		}
+		if prof.MaxBytes < 0 {
+			return nil, fmt.Errorf("profile %q: max_bytes must be positive, got %d", res.ProfileName, prof.MaxBytes)
+		}
+		res.MaxBytes = prof.MaxBytes
+		switch prof.OnOverflow {
+		case "", OnOverflowError, OnOverflowTruncate:
+			res.OnOverflow = prof.OnOverflow
+		default:
+			return nil, fmt.Errorf("profile %q: on_overflow must be %q or %q, got %q", res.ProfileName, OnOverflowError, OnOverflowTruncate, prof.OnOverflow)
 		}
 	}
 

@@ -181,10 +181,8 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 		return usageErrorf("no input: pass a question as an argument or pipe content to stdin")
 	}
 
-	maxInput := int(flags.maxInput)
-	if maxInput <= 0 {
-		maxInput = cfg.InputMaxBytes()
-	}
+	maxInput := resolveMaxInput(int(flags.maxInput), resolved.MaxBytes, cfg)
+	onOverflow := resolveOnOverflow(resolved.OnOverflow, cfg)
 
 	in, err := input.Resolve(input.Options{
 		Arg:             arg,
@@ -197,7 +195,7 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 		return usageErrorf("%s", err)
 	}
 	if in.Truncated {
-		if cfg.InputOnOverflow() == config.OnOverflowError {
+		if onOverflow == config.OnOverflowError {
 			return usageErrorf("stdin exceeds %d bytes; raise --max-input or set input.on_overflow = %q", maxOrDefault(maxInput), config.OnOverflowTruncate)
 		}
 		fmt.Fprintf(stderr, "qq: stdin truncated at %d bytes; use --max-input to override\n", maxOrDefault(maxInput))
@@ -364,6 +362,28 @@ func resolveTimeout(flag, profile time.Duration, cfg *config.Config) time.Durati
 		return profile
 	}
 	return cfg.RequestTimeout()
+}
+
+// resolveMaxInput picks the stdin cap: --max-input flag, then the profile's
+// `max_bytes`, then config.toml's `input.max_bytes`. Returns 0 when none are
+// set, letting the input package apply its built-in default.
+func resolveMaxInput(flag, profile int, cfg *config.Config) int {
+	if flag > 0 {
+		return flag
+	}
+	if profile > 0 {
+		return profile
+	}
+	return cfg.InputMaxBytes()
+}
+
+// resolveOnOverflow picks the overflow strategy: profile's `on_overflow`,
+// then config.toml's `input.on_overflow`, then the built-in default.
+func resolveOnOverflow(profile string, cfg *config.Config) string {
+	if profile != "" {
+		return profile
+	}
+	return cfg.InputOnOverflow()
 }
 
 // decisionExitError maps a verdict + mode to the right exit code.

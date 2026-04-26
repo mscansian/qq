@@ -92,6 +92,8 @@ system_prompt = "Translate the user's input to English. Output only the translat
 | `system_prompt` | string | no | Replaces the default system prompt for this profile |
 | `incognito` | bool | no | When `true`, invocations using this profile skip history |
 | `timeout` | string | no | Per-request timeout (Go duration, e.g. `"45s"`, `"3m"`). Overrides `request.timeout` in [config.md](config.md); overridden by `--timeout`. |
+| `max_bytes` | int | no | Stdin cap in bytes. Overrides `input.max_bytes` in [config.md](config.md); overridden by `--max-input`. Useful for pinning a small cap to a small-context local model and a larger cap to a long-context one. |
+| `on_overflow` | string | no | What to do when stdin exceeds the cap: `"error"` or `"truncate"`. Overrides `input.on_overflow` in [config.md](config.md). |
 
 Unknown fields are rejected.
 

@@ -46,6 +46,8 @@ and doesn't cover.
 
 Stdin is read up to **200 KiB** by default. Above that, `qq` exits
 `11` rather than send a prefix. Raise the cap with `--max-input=BYTES`
-for one invocation, or set `input.max_bytes` in `config.toml` to
-change the default globally. To accept truncation instead of erroring,
-set `input.on_overflow = "truncate"`.
+for one invocation, set `max_bytes` on a profile to pin a cap to a
+specific model, or set `input.max_bytes` in `config.toml` to change
+the default globally. To accept truncation instead of erroring, set
+`on_overflow = "truncate"` on the profile or `input.on_overflow =
+"truncate"` in `config.toml`.

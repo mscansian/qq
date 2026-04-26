@@ -351,3 +351,53 @@ func TestResolveTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveMaxInput(t *testing.T) {
+	cases := map[string]struct {
+		flag    int
+		profile int
+		cfg     int // input.max_bytes in config
+		want    int
+	}{
+		"all unset → 0 (caller falls through to package default)": {want: 0},
+		"config only":          {cfg: 1024, want: 1024},
+		"profile beats config": {profile: 2048, cfg: 1024, want: 2048},
+		"flag beats profile":   {flag: 4096, profile: 2048, want: 4096},
+		"flag beats config":    {flag: 4096, cfg: 1024, want: 4096},
+		"flag beats both":      {flag: 4096, profile: 2048, cfg: 1024, want: 4096},
+		"profile only":         {profile: 2048, want: 2048},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			cfg := &config.Config{Input: config.Input{MaxBytes: tc.cfg}}
+			got := resolveMaxInput(tc.flag, tc.profile, cfg)
+			if got != tc.want {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolveOnOverflow(t *testing.T) {
+	cases := map[string]struct {
+		profile string
+		cfg     string // input.on_overflow in config
+		want    string
+	}{
+		"all unset → built-in default (error)": {want: config.OnOverflowError},
+		"config only":                          {cfg: config.OnOverflowTruncate, want: config.OnOverflowTruncate},
+		"profile beats config":                 {profile: config.OnOverflowError, cfg: config.OnOverflowTruncate, want: config.OnOverflowError},
+		"profile only":                         {profile: config.OnOverflowTruncate, want: config.OnOverflowTruncate},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			cfg := &config.Config{Input: config.Input{OnOverflow: tc.cfg}}
+			got := resolveOnOverflow(tc.profile, cfg)
+			if got != tc.want {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

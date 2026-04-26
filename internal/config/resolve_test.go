@@ -171,3 +171,80 @@ func TestResolveProfileTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveProfileMaxBytes(t *testing.T) {
+	t.Setenv("QQ_API_KEY", "")
+	t.Setenv("QQ_BASE_URL", "")
+	t.Setenv("QQ_MODEL", "")
+	t.Setenv("QQ_PROFILE", "")
+
+	cases := map[string]struct {
+		maxBytes int
+		want     int
+		wantErr  string
+	}{
+		"unset → zero (caller falls through)": {maxBytes: 0, want: 0},
+		"positive value passes through":       {maxBytes: 4096, want: 4096},
+		"negative errors":                     {maxBytes: -1, wantErr: "must be positive"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			creds := &Credentials{Profiles: map[string]Profile{
+				"default": {BaseURL: "https://api/", APIKey: "k", Model: "m", MaxBytes: tc.maxBytes},
+			}}
+			got, err := Resolve(creds, Overrides{})
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("want error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.MaxBytes != tc.want {
+				t.Fatalf("got %v, want %v", got.MaxBytes, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolveProfileOnOverflow(t *testing.T) {
+	t.Setenv("QQ_API_KEY", "")
+	t.Setenv("QQ_BASE_URL", "")
+	t.Setenv("QQ_MODEL", "")
+	t.Setenv("QQ_PROFILE", "")
+
+	cases := map[string]struct {
+		onOverflow string
+		want       string
+		wantErr    string
+	}{
+		"unset → empty (caller falls through)": {onOverflow: "", want: ""},
+		"error passes through":                 {onOverflow: OnOverflowError, want: OnOverflowError},
+		"truncate passes through":              {onOverflow: OnOverflowTruncate, want: OnOverflowTruncate},
+		"invalid value errors":                 {onOverflow: "nope", wantErr: "must be"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			creds := &Credentials{Profiles: map[string]Profile{
+				"default": {BaseURL: "https://api/", APIKey: "k", Model: "m", OnOverflow: tc.onOverflow},
+			}}
+			got, err := Resolve(creds, Overrides{})
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("want error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.OnOverflow != tc.want {
+				t.Fatalf("got %q, want %q", got.OnOverflow, tc.want)
+			}
+		})
+	}
+}

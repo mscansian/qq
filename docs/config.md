@@ -35,8 +35,8 @@ timeout = "180s"   # raise from the 60s default for slower models
 |---|---|---|---|
 | `history.enabled` | bool | `true` | Whether to append Q&A to `history.jsonl`. |
 | `history.max_entries` | int | `1000` | Rotation cap. See [history.md](history.md). |
-| `input.max_bytes` | int | `204800` (200 KiB) | Cap on stdin bytes. Overridden by `--max-input`. |
-| `input.on_overflow` | string | `"error"` | What to do when stdin exceeds the cap. `"error"` refuses the call and exits `11`; `"truncate"` cuts + warns + proceeds. |
+| `input.max_bytes` | int | `204800` (200 KiB) | Cap on stdin bytes. Overridden by the profile's `max_bytes` and `--max-input`. |
+| `input.on_overflow` | string | `"error"` | What to do when stdin exceeds the cap. `"error"` refuses the call and exits `11`; `"truncate"` cuts + warns + proceeds. Overridden by the profile's `on_overflow`. |
 | `request.timeout` | string | `"60s"` | Per-request timeout (Go duration, e.g. `"45s"`, `"3m"`). Overridden by the profile's `timeout` and `--timeout`. |
 
 Unknown fields are rejected.
@@ -94,3 +94,16 @@ naming the specific missing field.
 2. The selected profile's `timeout`
 3. `request.timeout` in `config.toml`
 4. Built-in default (`60s`)
+
+**Stdin cap:**
+
+1. `--max-input` flag
+2. The selected profile's `max_bytes`
+3. `input.max_bytes` in `config.toml`
+4. Built-in default (`204800`, 200 KiB)
+
+**Overflow strategy:**
+
+1. The selected profile's `on_overflow`
+2. `input.on_overflow` in `config.toml`
+3. Built-in default (`"error"`)
