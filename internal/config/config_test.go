@@ -10,8 +10,8 @@ import (
 
 func TestRequestTimeoutDefault(t *testing.T) {
 	c := &Config{}
-	if got := c.RequestTimeout(); got != 120*time.Second {
-		t.Fatalf("default: got %v, want 120s", got)
+	if got := c.RequestTimeout(); got != 60*time.Second {
+		t.Fatalf("default: got %v, want 60s", got)
 	}
 }
 

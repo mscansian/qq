@@ -332,7 +332,7 @@ func TestResolveTimeout(t *testing.T) {
 		cfg     string // request.timeout in config
 		want    time.Duration
 	}{
-		"all unset → built-in default": {want: 120 * time.Second},
+		"all unset → built-in default": {want: 60 * time.Second},
 		"config only":                  {cfg: "30s", want: 30 * time.Second},
 		"profile beats config":         {profile: 45 * time.Second, cfg: "30s", want: 45 * time.Second},
 		"flag beats profile":           {flag: 10 * time.Second, profile: 45 * time.Second, want: 10 * time.Second},

@@ -103,7 +103,7 @@ To stop the warnings entirely, set `history.enabled = false` in
 
 ## The request hangs / times out
 
-Per-request timeout is 120 seconds by default. A hung provider
+Per-request timeout is 60 seconds by default. A hung provider
 surfaces as a runtime error (exit `10`) after that point. Check
 network connectivity and the provider's status page. SDK retries
 happen automatically on 429 / 5xx but not on timeout.

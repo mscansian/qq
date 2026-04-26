@@ -26,7 +26,7 @@ max_bytes = 204800
 on_overflow = "error"
 
 [request]
-timeout = "180s"   # raise from the 120s default for slower models
+timeout = "180s"   # raise from the 60s default for slower models
 ```
 
 ### Fields
@@ -37,7 +37,7 @@ timeout = "180s"   # raise from the 120s default for slower models
 | `history.max_entries` | int | `1000` | Rotation cap. See [history.md](history.md). |
 | `input.max_bytes` | int | `204800` (200 KiB) | Cap on stdin bytes. Overridden by `--max-input`. |
 | `input.on_overflow` | string | `"error"` | What to do when stdin exceeds the cap. `"error"` refuses the call and exits `11`; `"truncate"` cuts + warns + proceeds. |
-| `request.timeout` | string | `"120s"` | Per-request timeout (Go duration, e.g. `"45s"`, `"3m"`). Overridden by the profile's `timeout` and `--timeout`. |
+| `request.timeout` | string | `"60s"` | Per-request timeout (Go duration, e.g. `"45s"`, `"3m"`). Overridden by the profile's `timeout` and `--timeout`. |
 
 Unknown fields are rejected.
 
@@ -93,4 +93,4 @@ naming the specific missing field.
 1. `--timeout` flag
 2. The selected profile's `timeout`
 3. `request.timeout` in `config.toml`
-4. Built-in default (`120s`)
+4. Built-in default (`60s`)

@@ -99,7 +99,7 @@ func Execute() int {
 	cmd.Flags().BoolVarP(&flags.interactive, "interactive", "i", false, "preview response on /dev/tty and confirm before writing to stdout")
 	cmd.Flags().BoolVar(&flags.incognito, "incognito", false, "skip history for this invocation")
 	cmd.Flags().Int64Var(&flags.maxInput, "max-input", 0, "cap stdin bytes (default 200KiB)")
-	cmd.Flags().DurationVar(&flags.timeout, "timeout", 0, "per-request timeout (default 120s, overrides profile and config)")
+	cmd.Flags().DurationVar(&flags.timeout, "timeout", 0, "per-request timeout (default 60s, overrides profile and config)")
 	cmd.Flags().BoolVar(&flags.configure, "configure", false, "interactive setup (adds/edits profiles)")
 	cmd.Flags().BoolVar(&flags.showVersion, "version", false, "print version and exit")
 	cmd.Flags().BoolVar(&flags.stats, "stats", false, "print token usage and timing to stderr after the response")

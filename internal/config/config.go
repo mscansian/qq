@@ -44,7 +44,7 @@ type Config struct {
 
 const (
 	defaultMaxHistory     = 1000
-	defaultRequestTimeout = 120 * time.Second
+	defaultRequestTimeout = 60 * time.Second
 )
 
 // HistoryEnabled honors the default (true) when unset.
@@ -85,7 +85,7 @@ func (c *Config) InputOnOverflow() string {
 }
 
 // RequestTimeout returns the configured per-request timeout, defaulting to
-// 120s when unset. LoadConfig validates the duration string, so by the
+// 60s when unset. LoadConfig validates the duration string, so by the
 // time we get here ParseDuration cannot fail.
 func (c *Config) RequestTimeout() time.Duration {
 	if c.Request.Timeout == "" {

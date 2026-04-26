@@ -24,7 +24,7 @@ ones.
 
 ## Timeouts and cancellation
 
-Per-request timeout defaults to 120 seconds; configurable via
+Per-request timeout defaults to 60 seconds; configurable via
 `--timeout`, profile `timeout`, or `request.timeout` in
 `config.toml` (see [config.md](config.md#fields)). Ctrl-C aborts
 cleanly and exits `130`.
