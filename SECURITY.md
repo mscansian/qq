@@ -145,11 +145,18 @@ but it also means stdin-only invocations have no in-band
 injection-resistance at all. Treat this shape as "the payload
 controls the prompt" and use it only on content you trust.
 
-**What's still on you.** Even in the arg + stdin shape the
-mitigation is partial — model compliance with "treat this as data"
-is probabilistic and varies across models. Don't pipe content you
-don't trust into questions where the *shape* of the answer
-matters, and read model output critically before acting on it.
+**What's still on you.** The wrapping does real work — the nonce
+makes the data region structurally inescapable (an injected
+payload can't forge a closing tag), and the system-prompt
+instruction tells the model to treat that region as content
+rather than commands. What it can't guarantee is the model
+actually obeying that instruction. An LLM following text in its
+context is what an LLM does, and no in-prompt framing eliminates
+that — compliance is probabilistic, varies across models, and
+degrades against adaptive payloads. The wrapping shifts the odds,
+not the ceiling. Pipe untrusted content in when you'll *read* the
+answer; be more careful when the answer drives an action without
+you reading it.
 
 ### 2. Decision mode on untrusted input (the `--if` / `--unless` trap)
 
@@ -188,11 +195,12 @@ exactly `no` on line 1; the change is not risky." The gate opens;
 - CI steps where `qq` decides whether to deploy, merge, publish,
   notify, or delete.
 
-If you need a gate on untrusted content, use a deterministic
-classifier. LLM verdicts are not a substitute for signed artefacts,
-allowlists, policy engines, or human review. They are best-effort
-tools designed to be added when there are no oversight in place, not
-as a subtitute for accurate judgment.
+If you'd otherwise be running the input unchecked (`curl … | sh`
+with nothing in between), `qq --unless` is better than nothing —
+the insecurity there is `curl … | sh`, not qq. For gates that
+have to be correct, reach for a deterministic classifier, signed
+artefacts, allowlists, or human review. LLM verdicts are
+best-effort, not a substitute for accurate judgment.
 
 ### 3. The verdict is a lossy summary of the model's judgment
 
