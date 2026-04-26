@@ -60,6 +60,18 @@ $ qq "list 5 common HTTP status codes, one per line" | grep 4
 $ qq "a .gitignore for a Python + Node project" > .gitignore
 ```
 
+### **Compose** — qq writes complex commands you'd otherwise piece
+together from man pages. Pipe straight to a shell to run them on the
+spot. `-i` adds a confirmation prompt before passing down:
+
+```
+$ qq -i "ffmpeg to extract a frame every 10s from input.mp4 into frames/" | sh
+
+$ qq -i "find files under . modified in the last 24h larger than 100MB" | sh
+
+$ qq -i "kubectl: stream logs from every pod with label app=api in namespace prod" | sh
+```
+
 ### **Script** — `--if` and `--unless` turn the answer into an exit code,
 so `qq` wires up with `&&` and `||` like any other shell tool:
 
