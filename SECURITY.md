@@ -78,7 +78,11 @@ Four rules cover most of what follows:
 2. **Don't let model output make irreversible decisions on untrusted
    input.** If `qq`'s answer directly triggers a deploy, a merge, a
    page, or a `rm`, and any part of the input came from outside your
-   control, you have a problem.
+   control, you have a problem. When the answer itself is a command
+   you intend to execute (`qq "..." | sh`), use `-i` to require a
+   human review on the alt screen before stdout flows. It's a
+   checkpoint, not a defense — it only helps if you actually read
+   what's there before pressing `y`.
 3. **A verdict is a lean, not a proof.** `--if`/`--unless` compress
    the model's judgment into one bit; a confident `no` and a 55/45
    `no` look identical to the shell.
