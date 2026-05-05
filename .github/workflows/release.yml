@@ -22,7 +22,7 @@ jobs:
 
       - name: Install qq
         env:
-          QQ_VERSION: v0.3.0
+          QQ_VERSION: v0.5.0
         run: |
           curl -fsSL "https://github.com/mscansian/qq/releases/download/${QQ_VERSION}/qq-linux-amd64" \
             -o /usr/local/bin/qq && chmod +x /usr/local/bin/qq
