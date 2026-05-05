@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -108,6 +111,85 @@ func TestRotateSpansMultipleChunks(t *testing.T) {
 	}
 	if last.Timestamp.Unix() != total-1 {
 		t.Fatalf("last kept entry: want ts=%d, got %d", total-1, last.Timestamp.Unix())
+	}
+}
+
+func TestLastReturnsErrNoHistoryWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", dir)
+
+	_, err := Last()
+	if !errors.Is(err, ErrNoHistory) {
+		t.Fatalf("want ErrNoHistory, got %v", err)
+	}
+}
+
+func TestLastReturnsErrNoHistoryWhenEmpty(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", dir)
+
+	path, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Last()
+	if !errors.Is(err, ErrNoHistory) {
+		t.Fatalf("want ErrNoHistory, got %v", err)
+	}
+}
+
+func TestLastReturnsSingleEntry(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", dir)
+
+	want := Entry{
+		Timestamp:    time.Unix(42, 0).UTC(),
+		Profile:      "default",
+		Model:        "m",
+		Question:     "what is DNS?",
+		Answer:       "name resolution.",
+		PayloadBytes: 1234,
+	}
+	if err := Append(want, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Last()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Question != want.Question || got.Answer != want.Answer || got.PayloadBytes != want.PayloadBytes {
+		t.Fatalf("round trip mismatch\n got: %+v\nwant: %+v", got, want)
+	}
+}
+
+func TestLastReturnsMostRecentOfMany(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", dir)
+
+	for i := range 5 {
+		if err := Append(Entry{
+			Timestamp: time.Unix(int64(i), 0).UTC(),
+			Question:  "q",
+			Answer:    fmt.Sprintf("answer-%d", i),
+		}, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := Last()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Answer != "answer-4" {
+		t.Fatalf("want last answer 'answer-4', got %q", got.Answer)
 	}
 }
 

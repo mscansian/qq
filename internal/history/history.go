@@ -1,6 +1,7 @@
 package history
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,15 +18,77 @@ import (
 // counts are omitted when the provider didn't report usage (interrupted
 // stream, or a provider that doesn't honor include_usage).
 type Entry struct {
-	Timestamp        time.Time `json:"timestamp"`
-	Profile          string    `json:"profile"`
-	Model            string    `json:"model"`
-	Question         string    `json:"question"`
-	Answer           string    `json:"answer"`
-	Decision         string    `json:"decision,omitempty"`
-	PromptTokens     int64     `json:"prompt_tokens,omitempty"`
-	CompletionTokens int64     `json:"completion_tokens,omitempty"`
-	TotalTokens      int64     `json:"total_tokens,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+	Profile   string    `json:"profile"`
+	Model     string    `json:"model"`
+	Question  string    `json:"question"`
+	Answer    string    `json:"answer"`
+	Decision  string    `json:"decision,omitempty"`
+	// PayloadBytes is the size of stdin content the model saw beyond what
+	// is already in Question — i.e. only set for the arg+stdin shape, where
+	// Question carries the arg and the actual data lived in stdin. Zero
+	// (omitted) means "no payload beyond Question", not "empty payload":
+	// stdin-only invocations record the payload directly in Question and
+	// leave this zero.
+	PayloadBytes     int64 `json:"payload_bytes,omitempty"`
+	PromptTokens     int64 `json:"prompt_tokens,omitempty"`
+	CompletionTokens int64 `json:"completion_tokens,omitempty"`
+	TotalTokens      int64 `json:"total_tokens,omitempty"`
+}
+
+// ErrNoHistory is returned by Last when no entry is available — either the
+// file doesn't exist yet or it's empty. Callers translate this into a
+// user-facing usage error.
+var ErrNoHistory = errors.New("no history")
+
+// Last returns the most recent entry, or ErrNoHistory when the file is
+// missing or empty. Reads only the tail of the file, not the whole thing.
+func Last() (Entry, error) {
+	path, err := Path()
+	if err != nil {
+		return Entry{}, err
+	}
+	f, err := os.Open(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return Entry{}, ErrNoHistory
+	}
+	if err != nil {
+		return Entry{}, err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return Entry{}, err
+	}
+	if info.Size() == 0 {
+		return Entry{}, ErrNoHistory
+	}
+
+	// tailOffset(maxEntries=1) seeks to the start of the last line, whether
+	// or not the file has a trailing newline and whether it has one or many
+	// entries.
+	offset, _, err := tailOffset(f, info.Size(), 1)
+	if err != nil {
+		return Entry{}, err
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return Entry{}, err
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return Entry{}, err
+	}
+	// Drop the trailing newline (Append always writes one) before decoding.
+	data = bytes.TrimRight(data, "\n")
+	if len(data) == 0 {
+		return Entry{}, ErrNoHistory
+	}
+	var e Entry
+	if err := json.Unmarshal(data, &e); err != nil {
+		return Entry{}, fmt.Errorf("decode last entry: %w", err)
+	}
+	return e, nil
 }
 
 // Path returns the history.jsonl path under XDG_STATE_HOME.

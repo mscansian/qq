@@ -46,6 +46,7 @@ type rootFlags struct {
 	timeout     time.Duration
 	configure   bool
 	showVersion bool
+	showLast    bool
 	stats       bool
 }
 
@@ -88,6 +89,9 @@ func Execute() int {
 			if flags.configure {
 				return runConfigure(cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
 			}
+			if flags.showLast {
+				return runLast(&flags, args, cmd.InOrStdin(), cmd.OutOrStdout())
+			}
 			return runAsk(cmd.Context(), &flags, args, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
 		},
 	}
@@ -102,6 +106,7 @@ func Execute() int {
 	cmd.Flags().DurationVar(&flags.timeout, "timeout", 0, "per-request timeout (default 60s, overrides profile and config)")
 	cmd.Flags().BoolVar(&flags.configure, "configure", false, "interactive setup (adds/edits profiles)")
 	cmd.Flags().BoolVar(&flags.showVersion, "version", false, "print version and exit")
+	cmd.Flags().BoolVar(&flags.showLast, "last", false, "print the most recent question and answer, then exit")
 	cmd.Flags().BoolVar(&flags.stats, "stats", false, "print token usage and timing to stderr after the response")
 
 	// Wire SIGINT → cancel the request context.
@@ -279,6 +284,12 @@ func runAsk(parent context.Context, flags *rootFlags, args []string, stdin io.Re
 			Model:     resolved.Model,
 			Question:  in.Question,
 			Answer:    resp.Prose,
+		}
+		// Only the arg+stdin shape carries content beyond Question; the
+		// stdin-only shape stores its payload directly in Question, so
+		// recording its size here would double-count.
+		if in.Source == "arg+stdin" {
+			entry.PayloadBytes = int64(len(in.StdinContent))
 		}
 		if decisionMode {
 			entry.Decision = string(resp.Decision)

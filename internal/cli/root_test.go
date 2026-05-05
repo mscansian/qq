@@ -14,6 +14,7 @@ import (
 
 	"github.com/mscansian/qq/internal/client"
 	"github.com/mscansian/qq/internal/config"
+	"github.com/mscansian/qq/internal/history"
 )
 
 // TestRunAskDecisionPassthrough wires runAsk end-to-end against a fake SSE
@@ -323,6 +324,158 @@ func setTestEnv(t *testing.T, baseURL string) func() {
 	t.Setenv("QQ_MODEL", "test-model")
 	t.Setenv("QQ_PROFILE", "")
 	return func() {}
+}
+
+// TestRunLast covers the happy paths and the marker contract: arg-only
+// entries print Q+A clean, arg+stdin entries get the size-marker line
+// between Q and A, and pre-feature entries (PayloadBytes == 0 even though
+// they were arg+stdin) print clean — we don't have the data to know.
+func TestRunLast(t *testing.T) {
+	cases := map[string]struct {
+		entry          history.Entry
+		wantContains   []string
+		wantNotContain []string
+	}{
+		"arg-only entry prints Q+A with no marker": {
+			entry: history.Entry{
+				Timestamp: time.Unix(1, 0).UTC(),
+				Question:  "what is DNS?",
+				Answer:    "name resolution.",
+			},
+			wantContains:   []string{"Previous question: what is DNS?", "Previous answer: name resolution."},
+			wantNotContain: []string{"piped content"},
+		},
+		"arg+stdin entry shows size marker": {
+			entry: history.Entry{
+				Timestamp:    time.Unix(1, 0).UTC(),
+				Question:     "what's wrong?",
+				Answer:       "OOM at line 42.",
+				PayloadBytes: 3271,
+			},
+			wantContains: []string{
+				"Previous question: what's wrong?",
+				"(previous turn included ~3.2 KiB of piped content, not shown)",
+				"Previous answer: OOM at line 42.",
+			},
+		},
+		"old entry without payload field prints no marker": {
+			entry: history.Entry{
+				Timestamp: time.Unix(1, 0).UTC(),
+				Question:  "summarize",
+				Answer:    "summary.",
+				// PayloadBytes intentionally zero — pre-feature entry.
+			},
+			wantContains:   []string{"Previous question: summarize", "Previous answer: summary."},
+			wantNotContain: []string{"piped content"},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("XDG_STATE_HOME", t.TempDir())
+			if err := history.Append(tc.entry, 0); err != nil {
+				t.Fatal(err)
+			}
+
+			var stdout bytes.Buffer
+			if err := runLast(&rootFlags{showLast: true}, nil, strings.NewReader(""), &stdout); err != nil {
+				t.Fatalf("runLast: %v", err)
+			}
+			out := stdout.String()
+			for _, want := range tc.wantContains {
+				if !strings.Contains(out, want) {
+					t.Fatalf("stdout missing %q, got:\n%s", want, out)
+				}
+			}
+			for _, no := range tc.wantNotContain {
+				if strings.Contains(out, no) {
+					t.Fatalf("stdout unexpectedly contains %q, got:\n%s", no, out)
+				}
+			}
+		})
+	}
+}
+
+func TestRunLastEmptyHistory(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+
+	var stdout bytes.Buffer
+	err := runLast(&rootFlags{showLast: true}, nil, strings.NewReader(""), &stdout)
+	if err == nil {
+		t.Fatal("expected usage error, got nil")
+	}
+	var ce *cliError
+	if !errors.As(err, &ce) || ce.code != exitUsage {
+		t.Fatalf("expected exit code %d, got %v", exitUsage, err)
+	}
+	if !strings.Contains(err.Error(), "no history") {
+		t.Fatalf("expected 'no history' in error, got %v", err)
+	}
+}
+
+// TestRunLastConflicts pins that --last refuses combinations that only
+// make sense with a model call. One per offending flag so the error
+// message mentions the right thing.
+func TestRunLastConflicts(t *testing.T) {
+	cases := map[string]struct {
+		flags   rootFlags
+		args    []string
+		wantMsg string
+	}{
+		"positional arg": {flags: rootFlags{showLast: true}, args: []string{"x"}, wantMsg: "no question argument"},
+		"--profile":      {flags: rootFlags{showLast: true, profile: "p"}, wantMsg: "--profile"},
+		"--model":        {flags: rootFlags{showLast: true, model: "m"}, wantMsg: "--model"},
+		"--if":           {flags: rootFlags{showLast: true, ifMode: true}, wantMsg: "--if"},
+		"--unless":       {flags: rootFlags{showLast: true, unlessMode: true}, wantMsg: "--unless"},
+		"--interactive":  {flags: rootFlags{showLast: true, interactive: true}, wantMsg: "--interactive"},
+		"--incognito":    {flags: rootFlags{showLast: true, incognito: true}, wantMsg: "--incognito"},
+		"--stats":        {flags: rootFlags{showLast: true, stats: true}, wantMsg: "--stats"},
+		"--max-input":    {flags: rootFlags{showLast: true, maxInput: 1024}, wantMsg: "--max-input"},
+		"--timeout":      {flags: rootFlags{showLast: true, timeout: 1 * time.Second}, wantMsg: "--timeout"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("XDG_STATE_HOME", t.TempDir())
+
+			var stdout bytes.Buffer
+			err := runLast(&tc.flags, tc.args, strings.NewReader(""), &stdout)
+			if err == nil {
+				t.Fatal("expected usage error, got nil")
+			}
+			var ce *cliError
+			if !errors.As(err, &ce) || ce.code != exitUsage {
+				t.Fatalf("expected exit code %d, got %v", exitUsage, err)
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Fatalf("expected error to mention %q, got %v", tc.wantMsg, err)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout should be empty on conflict, got %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestHumanBytes(t *testing.T) {
+	cases := map[string]struct {
+		n    int64
+		want string
+	}{
+		"under 1 KiB":      {n: 512, want: "512 bytes"},
+		"exactly 1 KiB":    {n: 1024, want: "1.0 KiB"},
+		"3.2 KiB":          {n: 3271, want: "3.2 KiB"},
+		"just under 1 MiB": {n: 1024*1024 - 1, want: "1024.0 KiB"},
+		"exactly 1 MiB":    {n: 1024 * 1024, want: "1.0 MiB"},
+		"5.5 MiB":          {n: 5.5 * 1024 * 1024, want: "5.5 MiB"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := humanBytes(tc.n); got != tc.want {
+				t.Fatalf("got %q want %q", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestResolveTimeout(t *testing.T) {

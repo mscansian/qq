@@ -30,6 +30,43 @@ Decision-mode invocations add a `decision` field
 (`"yes"` / `"no"` / `"unknown"`). The `answer` field always stores
 the prose only, matching what you saw on stdout.
 
+`payload_bytes` is set only on the arg+stdin shape (`cat foo | qq
+"…"`), where the recorded `question` is just the arg and the actual
+content lived in stdin. It records how much was piped in. Stdin-only
+invocations leave it at zero — their payload is already in
+`question`.
+
+## Reusing the last answer
+
+When a follow-up needs the previous turn for context — e.g. the model
+misread the question and you want to clarify — `qq --last` prints the
+most recent question and answer in a form you can paste back as
+context:
+
+```
+$ qq --last
+Previous question: what's an idempotent HTTP method?
+Previous answer: One whose effect is the same whether called once
+or many times — GET, PUT, DELETE.
+
+$ qq "$(qq --last)
+
+but what about PATCH?"
+```
+
+`--last` doesn't call the model and doesn't write to history. If the
+previous turn was `cat foo | qq "…"` the actual stdin payload isn't
+in history, so the output gets a marker:
+
+```
+Previous question: what's wrong?
+(previous turn included ~3.2 KiB of piped content, not shown)
+Previous answer: ...
+```
+
+so you know the model's answer was based on data you'd need to
+re-pipe to truly reuse.
+
 ## Rotation
 
 The file is capped at `history.max_entries` (default `1000`, set in
